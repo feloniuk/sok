@@ -55,6 +55,7 @@ spl_autoload_register(function ($class_name) {
 require_once APP_PATH . '/helpers/auth_helper.php';
 require_once APP_PATH . '/helpers/url_helper.php';
 require_once APP_PATH . '/helpers/form_helper.php';
+require_once APP_PATH . '/helpers/debug_helper.php';
 
 // Функция для обработки необработанных исключений
 function exception_handler($exception) {

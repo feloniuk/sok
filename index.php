@@ -2,10 +2,10 @@
 // public/index.php - Точка входа в приложение
 
 // Загрузка конфигурации
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/init.php';
-require_once '../app/Router.php';
+require_once 'config/config.php';
+require_once 'config/init.php';
+require_once 'app/Router.php';
+require_once 'config/database.php';
 
 // Создание экземпляра маршрутизатора
 $router = new Router();
