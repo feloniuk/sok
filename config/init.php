@@ -33,19 +33,17 @@ if (!isset($_SESSION[CSRF_TOKEN_NAME])) {
 // Функция для динамической загрузки классов
 spl_autoload_register(function ($class_name) {
     // Преобразование имени класса в путь к файлу
-    $file_path = str_replace('\\', '/', $class_name) . '.php';
-    
-    // Поиск файла в различных директориях
-    $directories = [
-        APP_PATH . '/models/',
-        APP_PATH . '/controllers/',
-        APP_PATH . '/middleware/',
-        APP_PATH . '/helpers/'
+    $class_name = str_replace('\\', '/', $class_name);
+    $possible_paths = [
+        APP_PATH . '/models/' . $class_name . '.php',
+        APP_PATH . '/controllers/' . $class_name . '.php',
+        APP_PATH . '/middleware/' . $class_name . '.php',
+        APP_PATH . '/helpers/' . $class_name . '.php'
     ];
-    
-    foreach ($directories as $directory) {
-        if (file_exists($directory . $file_path)) {
-            require_once $directory . $file_path;
+
+    foreach ($possible_paths as $path) {
+        if (file_exists($path)) {
+            require_once $path;
             return;
         }
     }

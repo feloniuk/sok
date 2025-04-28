@@ -14,9 +14,7 @@ class ProductController extends BaseController {
     /**
      * Відображення списку продуктів
      */
-    public function index() {
-        print_r('123');
-        exit();
+    public function index() {        
         // Отримання параметрів фільтрації та пагінації
         $page = intval($this->input('page', 1));
         
@@ -46,9 +44,7 @@ class ProductController extends BaseController {
         ];
         $this->data['categories'] = $categories;
         
-        $this->view('products/index', [
-            'data' => $this->data
-        ]);
+        $this->view('products/index');
     }
     
     /**

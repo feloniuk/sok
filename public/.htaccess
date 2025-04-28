@@ -1,10 +1,10 @@
 RewriteEngine On
-RewriteBase /public/
+RewriteBase /
 
-# Если запрашиваемый файл или директория существуют, используем их
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
+# Разрешаем прямой доступ к статическим файлам
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-l
 
-# В противном случае перенаправляем на index.php
-RewriteRule ^(.*)$ index.php/$1 [L,QSA]
+# Перенаправляем все запросы на index.php
+RewriteRule ^(.*)$ index.php [L,QSA]

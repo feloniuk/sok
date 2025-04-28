@@ -1,11 +1,21 @@
 <?php
 // public/index.php - Точка входа в приложение
 
+// Для отладки
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Загрузка конфигурации
 require_once '../config/config.php';
-require_once '../config/init.php';
-require_once '../app/Router.php';
 require_once '../config/database.php';
+require_once '../config/init.php';
+
+// Явные подключения классов
+require_once APP_PATH . '/controllers/BaseController.php';
+require_once APP_PATH . '/middleware/AuthMiddleware.php';
+require_once APP_PATH . '/middleware/RoleMiddleware.php';
+require_once APP_PATH . '/Router.php';
 
 // Создание экземпляра маршрутизатора
 $router = new Router();
@@ -14,7 +24,6 @@ $router = new Router();
 
 // Главная страница
 $router->get('/', 'HomeController', 'index');
-$router->get('/home', 'HomeController', 'index');
 
 // Авторизация
 $router->get('/auth/login', 'AuthController', 'login');
@@ -99,4 +108,10 @@ $router->notFound(function() {
 });
 
 // Запуск маршрутизатора
-$router->dispatch();
+try {
+    $router->dispatch();
+} catch (Exception $e) {
+    error_log('Router Exception: ' . $e->getMessage());
+    echo "Произошла ошибка: " . $e->getMessage();
+    exit;
+}

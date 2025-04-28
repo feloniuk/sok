@@ -13,6 +13,7 @@ class AuthController extends BaseController {
      * Отображение формы входа
      */
     public function login() {
+        
         // Если пользователь уже авторизован, перенаправляем на дашборд
         if (is_logged_in()) {
             $this->redirect('dashboard');

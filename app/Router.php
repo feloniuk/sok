@@ -5,8 +5,11 @@ class Router {
     private $routes = [];
     private $notFoundCallback;
     
-    // Добавление маршрута
+    // Добавление маршрута с корректной обработкой слешей
     public function add($method, $path, $controller, $action, $middleware = []) {
+        // Нормализация пути - удаление начального слеша, если он есть
+        $path = ltrim($path, '/');
+        
         $this->routes[] = [
             'method' => $method,
             'path' => $path,
@@ -18,12 +21,12 @@ class Router {
         return $this;
     }
     
-    // Добавление GET-маршрута
+    // Метод GET с нормализацией пути
     public function get($path, $controller, $action, $middleware = []) {
         return $this->add('GET', $path, $controller, $action, $middleware);
     }
     
-    // Добавление POST-маршрута
+    // Метод POST с нормализацией пути
     public function post($path, $controller, $action, $middleware = []) {
         return $this->add('POST', $path, $controller, $action, $middleware);
     }
@@ -40,21 +43,24 @@ class Router {
         $requestMethod = $_SERVER['REQUEST_METHOD'];
         $requestUri = $_SERVER['REQUEST_URI'];
         
-        // Обработка базового URL
+        // Базовый путь приложения
         $basePath = str_replace('index.php', '', $_SERVER['SCRIPT_NAME']);
+        
+        // Удаление базового пути из URI
         $requestPath = str_replace($basePath, '', $requestUri);
         
-        // Удаление параметров запроса
+        // Удаление начального слеша и параметров запроса
+        $requestPath = ltrim($requestPath, '/');
         $position = strpos($requestPath, '?');
         if ($position !== false) {
             $requestPath = substr($requestPath, 0, $position);
         }
         
-        // Удаление концевого слеша
-        $requestPath = rtrim($requestPath, '/');
-        if ($requestPath === '') {
-            $requestPath = '/';
-        }
+        // Декодирование пути
+        $requestPath = urldecode($requestPath);
+        
+        // Если путь пустой, устанавливаем корневой
+        $requestPath = $requestPath ?: '';
         
         // Поиск подходящего маршрута
         foreach ($this->routes as $route) {
@@ -73,7 +79,7 @@ class Router {
                 
                 // Выполнение промежуточного ПО
                 foreach ($route['middleware'] as $middleware) {
-                    $middlewareInstance = new $middleware();
+                    $middlewareInstance = is_string($middleware) ? new $middleware() : $middleware;
                     $result = $middlewareInstance->handle();
                     
                     if ($result === false) {
@@ -107,7 +113,11 @@ class Router {
     private function convertRouteToRegex($route) {
         // Замена параметров в формате {id} на регулярное выражение
         $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>[^/]+)', $route);
-        return "#^{$pattern}$#";
+        
+        // Экранирование символов и добавление якорей
+        $pattern = '#^' . str_replace('/', '\/', $pattern) . '$#';
+        
+        return $pattern;
     }
     
     // Извлечение параметров из совпадений регулярного выражения
