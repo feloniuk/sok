@@ -1,13 +1,5 @@
 RewriteEngine On
-RewriteBase /
 
-# Разрешаем прямой доступ к файлам в папке public
-RewriteRule ^public/(.*)$ public/$1 [L]
-
-# Если запрашиваемый файл или директория существуют, используем их
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# В противном случае перенаправляем все на index.php
-RewriteRule ^(.*)$ public/index.php/$1 [L,QSA]
+# Перенаправление всех запросов в папку public
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(.*)$ public/$1 [L]

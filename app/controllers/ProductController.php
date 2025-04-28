@@ -52,7 +52,7 @@ class ProductController extends BaseController {
      *
      * @param int $id
      */
-    public function view($id, $data = []) {
+    public function details($id, $data = []) {
         // Отримання даних продукту з інформацією про категорію
         $product = $this->productModel->getWithCategory($id);
         

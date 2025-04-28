@@ -138,12 +138,14 @@ class User extends BaseModel {
      * Поиск пользователей
      *
      * @param string $keyword
+     * @param array $fields (опционально)
      * @return array
      */
-    public function search($keyword) {
-        return parent::search($keyword, [
-            'username', 'email', 'first_name', 'last_name', 'phone'
-        ]);
+    public function search($keyword, $fields = null) {
+        if ($fields === null) {
+            $fields = ['username', 'email', 'first_name', 'last_name', 'phone'];
+        }
+        return parent::search($keyword, $fields);
     }
     
     /**

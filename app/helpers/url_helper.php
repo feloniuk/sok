@@ -9,7 +9,7 @@
  */
 function base_url($path = '') {
     $path = ltrim($path, '/');
-    return BASE_URL . ($path ? "/$path" : '');
+    return BASE_URL . ($path ? "$path" : '');
 }
 
 /**

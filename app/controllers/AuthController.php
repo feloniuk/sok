@@ -27,11 +27,7 @@ class AuthController extends BaseController {
      * Обработка формы входа
      */
     public function processLogin() {
-        // Проверка метода запроса
-        if (!$this->isPost()) {
-            $this->redirect('auth/login');
-            return;
-        }
+        
         
         // Проверка CSRF-токена
         $this->validateCsrfToken();

@@ -1,10 +1,8 @@
 RewriteEngine On
-RewriteBase /
 
-# Разрешаем прямой доступ к статическим файлам
+# Проверка, существует ли запрашиваемый файл
 RewriteCond %{REQUEST_FILENAME} !-f
+# Проверка, существует ли запрашиваемая директория
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME} !-l
-
-# Перенаправляем все запросы на index.php
+# Перенаправление на index.php
 RewriteRule ^(.*)$ index.php [L,QSA]

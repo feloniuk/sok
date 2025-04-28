@@ -46,6 +46,20 @@ class BaseController {
     
     // Перенаправление на другой URL
     protected function redirect($url) {
+        // Если URL не начинается с http или https - это относительный URL
+        if (!preg_match('/^https?:\/\//', $url)) {
+            // Если URL начинается со слеша, добавляем только домен
+            if (strpos($url, '/') === 0) {
+                $url = rtrim(BASE_URL, '/') . $url;
+            } else {
+                // Иначе добавляем домен и слеш
+                $url = rtrim(BASE_URL, '/') . '/' . $url;
+            }
+        }
+        
+        // Для отладки
+        error_log("Redirecting to: " . $url);
+        
         header('Location: ' . $url);
         exit;
     }

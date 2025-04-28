@@ -37,30 +37,24 @@ class Router {
         return $this;
     }
     
-    // Выполнение запроса
     public function dispatch() {
         // Получение метода и пути запроса
         $requestMethod = $_SERVER['REQUEST_METHOD'];
         $requestUri = $_SERVER['REQUEST_URI'];
         
         // Базовый путь приложения
-        $basePath = str_replace('index.php', '', $_SERVER['SCRIPT_NAME']);
+        $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
         
-        // Удаление базового пути из URI
-        $requestPath = str_replace($basePath, '', $requestUri);
-        
-        // Удаление начального слеша и параметров запроса
-        $requestPath = ltrim($requestPath, '/');
-        $position = strpos($requestPath, '?');
-        if ($position !== false) {
-            $requestPath = substr($requestPath, 0, $position);
-        }
-        
-        // Декодирование пути
-        $requestPath = urldecode($requestPath);
+        // Удаление базового пути и параметров запроса
+        $requestPath = parse_url($requestUri, PHP_URL_PATH);
+        $requestPath = preg_replace('#^' . preg_quote($basePath) . '#', '', $requestPath);
+        $requestPath = trim($requestPath, '/');
         
         // Если путь пустой, устанавливаем корневой
         $requestPath = $requestPath ?: '';
+        
+        // Для отладки
+        error_log("Processing request: {$requestPath}");
         
         // Поиск подходящего маршрута
         foreach ($this->routes as $route) {
@@ -69,11 +63,20 @@ class Router {
                 continue;
             }
             
+            // Получаем путь маршрута
+            $routePath = trim($route['path'], '/');
+            
+            // Для отладки
+            error_log("Checking route: {$routePath}");
+            
             // Преобразование пути маршрута в регулярное выражение
-            $pattern = $this->convertRouteToRegex($route['path']);
+            $pattern = $this->convertRouteToRegex($routePath);
             
             // Проверка соответствия пути
             if (preg_match($pattern, $requestPath, $matches)) {
+                // Для отладки
+                error_log("Match found for route: {$routePath}");
+                
                 // Получение параметров из URL
                 $params = $this->extractParams($matches);
                 
@@ -89,10 +92,37 @@ class Router {
                 
                 // Создание экземпляра контроллера
                 $controllerName = $route['controller'];
+                
+                // Проверка существования контроллера
+                if (!class_exists($controllerName)) {
+                    error_log("Controller not found: {$controllerName}");
+                    if ($this->notFoundCallback) {
+                        call_user_func($this->notFoundCallback);
+                    } else {
+                        header("HTTP/1.0 404 Not Found");
+                        echo "<h1>404 Not Found</h1>";
+                        echo "<p>Controller '{$controllerName}' not found.</p>";
+                    }
+                    return;
+                }
+                
                 $controller = new $controllerName();
                 
-                // Вызов действия контроллера с параметрами
+                // Проверка существования метода
                 $action = $route['action'];
+                if (!method_exists($controller, $action)) {
+                    error_log("Action not found: {$action} in controller {$controllerName}");
+                    if ($this->notFoundCallback) {
+                        call_user_func($this->notFoundCallback);
+                    } else {
+                        header("HTTP/1.0 404 Not Found");
+                        echo "<h1>404 Not Found</h1>";
+                        echo "<p>Action '{$action}' not found in controller '{$controllerName}'.</p>";
+                    }
+                    return;
+                }
+                
+                // Вызов действия контроллера с параметрами
                 call_user_func_array([$controller, $action], $params);
                 
                 return;
@@ -100,6 +130,7 @@ class Router {
         }
         
         // Маршрут не найден
+        error_log("No route found for path: {$requestPath}");
         if ($this->notFoundCallback) {
             call_user_func($this->notFoundCallback);
         } else {
