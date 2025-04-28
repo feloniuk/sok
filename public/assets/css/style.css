@@ -182,6 +182,10 @@ body {
     border-color: var(--primary);
 }
 
+.pagination .page-item.active .page-link {
+    color: var(--light);
+}
+
 .pagination .page-link {
     padding: 0.5rem 0.75rem;
     color: var(--primary);

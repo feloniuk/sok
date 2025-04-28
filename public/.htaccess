@@ -1,8 +1,14 @@
-RewriteEngine On
-
-# Проверка, существует ли запрашиваемый файл
-RewriteCond %{REQUEST_FILENAME} !-f
-# Проверка, существует ли запрашиваемая директория
-RewriteCond %{REQUEST_FILENAME} !-d
-# Перенаправление на index.php
-RewriteRule ^(.*)$ index.php [L,QSA]
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Если запрос идет к реальному файлу или каталогу, используем его напрямую
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Если запрос идет к assets, используем его напрямую
+    RewriteRule ^assets/ - [L]
+    
+    # Иначе все запросы перенаправляем на index.php
+    RewriteRule ^ index.php [L]
+</IfModule>

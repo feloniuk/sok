@@ -27,6 +27,41 @@ require_once APP_PATH . '/controllers/BaseController.php';
 require_once APP_PATH . '/middleware/AuthMiddleware.php';
 require_once APP_PATH . '/middleware/RoleMiddleware.php';
 
+// Проверяем, является ли запрос запросом к статическому файлу в директории assets
+$request_uri = $_SERVER['REQUEST_URI'];
+if (strpos($request_uri, '/public/assets/') !== false || strpos($request_uri, '/assets/') !== false) {
+    // Это запрос к статическому файлу, определяем путь к файлу
+    $file_path = str_replace(['public/public', '/'], ['public', '\\'], __DIR__ . parse_url($request_uri, PHP_URL_PATH));
+    // print_r($file_path);
+    // exit();
+    // Если файл существует, отдаем его напрямую
+    if (file_exists($file_path) && is_file($file_path)) {
+        // Определяем MIME-тип файла
+        $mime_types = [
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+        ];
+        
+        $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
+        $mime_type = $mime_types[$ext] ?? 'application/octet-stream';
+        
+        header("Content-Type: $mime_type");
+        readfile($file_path);
+        exit;
+    }
+    
+    // Файл не найден, возвращаем 404
+    header("HTTP/1.0 404 Not Found");
+    echo "404 Not Found: The requested file does not exist.";
+    exit;
+}
+
 // Создание экземпляра маршрутизатора
 $router = new Router();
 
@@ -115,7 +150,7 @@ $router->get('reports/generate', 'ReportController', 'generate', [RoleMiddleware
 $router->notFound(function() {
     header("HTTP/1.0 404 Not Found");
     echo '<h1>404 Страница не найдена</h1>';
-    echo '<p>Запрашиваемая страница не существует.</p>';
+    echo '<p>Запрашиваемая страница не существует!!</p>';
     echo '<p><a href="/">Вернуться на главную</a></p>';
 });
 

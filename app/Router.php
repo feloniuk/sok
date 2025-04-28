@@ -136,7 +136,7 @@ class Router {
         } else {
             header("HTTP/1.0 404 Not Found");
             echo "<h1>404 Not Found</h1>";
-            echo "<p>Запрашиваемая страница не существует.</p>";
+            echo "<p>Запрашиваемая страница не существует!</p>";
         }
     }
     

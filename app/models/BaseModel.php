@@ -133,11 +133,13 @@ class BaseModel {
     }
     
     // Получение пагинированных записей
-    public function paginate($page = 1, $perPage = ITEMS_PER_PAGE) {
+    protected function paginate($sql, $params = [], $page = 1, $perPage = ITEMS_PER_PAGE) {
         $page = max(1, intval($page));
         
         // Получение общего количества записей
-        $totalItems = $this->count();
+        $countSql = preg_replace('/SELECT(.*?)FROM/is', 'SELECT COUNT(*) FROM', $sql);
+        $countSql = preg_replace('/ORDER BY(.*?)$/is', '', $countSql);
+        $totalItems = $this->db->getValue($countSql, $params);
         
         // Расчет пагинации
         $totalPages = ceil($totalItems / $perPage);
@@ -145,8 +147,43 @@ class BaseModel {
         $offset = ($page - 1) * $perPage;
         
         // Получение записей для текущей страницы
-        $sql = "SELECT * FROM {$this->table} LIMIT $offset, $perPage";
-        $items = $this->db->getAll($sql);
+        $pageSql = $sql . " LIMIT $offset, $perPage";
+        $items = $this->db->getAll($pageSql, $params);
+        
+        return [
+            'items' => $items,
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'total_items' => $totalItems,
+            'total_pages' => $totalPages
+        ];
+    }
+
+    /**
+     * Получение пагинированных записей по SQL-запросу
+     *
+     * @param string $sql SQL-запрос
+     * @param array $params Параметры запроса
+     * @param int $page Номер страницы
+     * @param int $perPage Количество записей на странице
+     * @return array
+     */
+    protected function paginateQuery($sql, $params = [], $page = 1, $perPage = ITEMS_PER_PAGE) {
+        $page = max(1, intval($page));
+        
+        // Получение общего количества записей
+        $countSql = preg_replace('/SELECT(.*?)FROM/is', 'SELECT COUNT(*) FROM', $sql);
+        $countSql = preg_replace('/ORDER BY(.*?)$/is', '', $countSql);
+        $totalItems = $this->db->getValue($countSql, $params);
+        
+        // Расчет пагинации
+        $totalPages = ceil($totalItems / $perPage);
+        $page = min($page, max(1, $totalPages));
+        $offset = ($page - 1) * $perPage;
+        
+        // Получение записей для текущей страницы
+        $pageSql = $sql . " LIMIT $offset, $perPage";
+        $items = $this->db->getAll($pageSql, $params);
         
         return [
             'items' => $items,

@@ -1,12 +1,11 @@
-RewriteEngine On
-
-# Если запрос к директории public/assets, обслуживаем напрямую
-RewriteRule ^public/assets/(.*)$ public/assets/$1 [L]
-
-# Если запрос к существующему файлу/папке, обслуживаем напрямую
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# Все остальные запросы перенаправляем в public/index.php
-RewriteRule ^(.*)$ public/index.php [L,QSA]
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Если запрос идет к реальному файлу или каталогу в папке public, используем его напрямую
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 -d
+    RewriteRule ^(.*)$ public/$1 [L]
+    
+    # Иначе все запросы перенаправляем на public/index.php
+    RewriteRule ^(.*)$ public/index.php [L]
+</IfModule>

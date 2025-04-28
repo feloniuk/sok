@@ -17,7 +17,13 @@ class Order extends BaseModel {
      */
     public function createWithItems($orderData, $items) {
         try {
-            $this->db->beginTransaction();
+            // Проверяем, есть ли уже активная транзакция
+            $inTransaction = $this->db->inTransaction();
+            
+            // Начинаем транзакцию только если она еще не начата
+            if (!$inTransaction) {
+                $this->db->beginTransaction();
+            }
             
             // Генерация номера заказа
             if (empty($orderData['order_number'])) {
@@ -56,7 +62,8 @@ class Order extends BaseModel {
                     'reference_id' => $orderId,
                     'reference_type' => 'order',
                     'notes' => 'Списание по заказу ' . $orderData['order_number'],
-                    'created_by' => get_current_user_id()
+                    'created_by' => get_current_user_id(),
+                    'skip_stock_update' => true // Важный флаг, чтобы избежать повторного обновления запасов
                 ];
                 
                 $inventoryMovementModel->create($movementData);
@@ -65,14 +72,23 @@ class Order extends BaseModel {
             // Запись в аналитику продаж
             $this->updateSalesAnalytics($items);
             
-            $this->db->commit();
+            // Завершаем транзакцию только если мы ее начали
+            if (!$inTransaction) {
+                $this->db->commit();
+            }
+            
             return $orderId;
             
         } catch (Exception $e) {
-            $this->db->rollBack();
+            // Откатываем транзакцию только если мы ее начали
+            if (!$inTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             
             if (DEBUG_MODE) {
-                throw $e;
+                error_log("Error in createWithItems: " . $e->getMessage());
+                // Можно дополнительно логировать стек вызовов
+                error_log($e->getTraceAsString());
             }
             
             return false;
@@ -208,13 +224,13 @@ class Order extends BaseModel {
         
         // SQL-запрос для получения заказов с данными о клиенте
         $sql = 'SELECT o.*, u.first_name, u.last_name 
-                FROM orders o 
-                JOIN users u ON o.customer_id = u.id 
-                ' . $whereClause . ' 
-                ORDER BY o.created_at DESC';
-        
-        // Пагинация
-        return $this->paginate($sql, $params, $page, $perPage);
+        FROM orders o 
+        JOIN users u ON o.customer_id = u.id 
+        ' . $whereClause . ' 
+        ORDER BY o.created_at DESC';
+
+    // Пагинация с использованием нового метода
+    return $this->paginateQuery($sql, $params, $page, $perPage);
     }
     
     /**

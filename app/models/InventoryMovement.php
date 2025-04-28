@@ -9,39 +9,50 @@ class InventoryMovement extends BaseModel {
     ];
     
     /**
-     * Створення нового запису про рух товару
-     * 
-     * @param array $data
-     * @return int|bool ID нового запису або false при помилці
-     */
+    * Створення запису про рух товару
+    *
+    * @param array $data
+    * @return int|bool
+    */
     public function create($data) {
-        // Починаємо транзакцію для забезпечення цілісності даних
-        $this->db->beginTransaction();
-        
         try {
-            // Створюємо запис про рух товару
-            $movementId = parent::create($data);
+            // Проверяем, есть ли уже активная транзакция
+            $inTransaction = $this->db->inTransaction();
             
-            if (!$movementId) {
-                throw new Exception("Помилка при створенні запису про рух товару");
+            // Начинаем транзакцию только если она еще не начата
+            if (!$inTransaction) {
+                $this->db->beginTransaction();
             }
             
-            // Оновлюємо кількість товару на складі, якщо не встановлено флаг пропуску
+            // Створення запису про рух
+            $id = parent::create($data);
+            
+            if (!$id) {
+                throw new Exception('Помилка при створенні запису про рух товару');
+            }
+            
+            // Оновлення кількості товару на складі, якщо не оновлюється через інший процес
             if (!isset($data['skip_stock_update']) || !$data['skip_stock_update']) {
-                $productModel = new Product();
-                $productModel->updateStock($data['product_id'], $data['quantity']);
+                $sql = 'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?';
+                $this->db->query($sql, [$data['quantity'], $data['product_id']]);
             }
             
-            // Фіксуємо транзакцію
-            $this->db->commit();
-            return $movementId;
+            // Завершаем транзакцию только если мы ее начали
+            if (!$inTransaction) {
+                $this->db->commit();
+            }
+            
+            return $id;
             
         } catch (Exception $e) {
-            // Відкат транзакції при помилці
-            $this->db->rollBack();
+            // Откатываем транзакцию только если мы ее начали
+            if (!$inTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             
             if (DEBUG_MODE) {
-                throw $e;
+                error_log("Error in InventoryMovement::create: " . $e->getMessage());
+                error_log($e->getTraceAsString());
             }
             
             return false;

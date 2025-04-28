@@ -338,3 +338,6 @@ INSERT INTO sales_analytics (date, product_id, quantity_sold, revenue, cost, pro
 ('2025-04-15', 10, 11, 1539.89, 769.95, 769.94),
 ('2025-04-15', 11, 9, 1169.91, 584.96, 584.95),
 ('2025-04-15', 12, 8, 1199.92, 599.96, 599.96);
+
+
+ALTER TABLE order_items ADD COLUMN warehouse_id INT NULL AFTER price;

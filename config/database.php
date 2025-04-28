@@ -39,6 +39,15 @@ class Database {
         return self::$instance;
     }
     
+    /**
+     * Проверка, есть ли уже активная транзакция
+     *
+     * @return bool
+     */
+    public function inTransaction() {
+        return $this->conn->inTransaction();
+    }
+
     // Получение соединения
     public function getConnection() {
         return $this->conn;
