@@ -67,13 +67,17 @@ class Category extends BaseModel {
     }
     
     /**
-     * Пошук категорій
+     * Поиск категорий
      *
      * @param string $keyword
+     * @param array $fields (опционально)
      * @return array
      */
-    public function search($keyword) {
-        return parent::search($keyword, ['name', 'description']);
+    public function search($keyword, $fields = null) {
+        if ($fields === null) {
+            $fields = ['name', 'description'];
+        }
+        return parent::search($keyword, $fields);
     }
     
     /**

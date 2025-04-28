@@ -29,7 +29,7 @@ class CategoryController extends BaseController {
      *
      * @param int $id
      */
-    public function view($id) {
+    public function view($id, $data = []) {
         // Получение страницы для пагинации
         $page = intval($this->input('page', 1));
         

@@ -5,7 +5,7 @@ define('APP_NAME', 'Система автоматизации продаж со�
 define('APP_VERSION', '1.0.0');
 
 // URL-адрес и путь приложения
-define('BASE_URL', 'http://sok.loc/');
+define('BASE_URL', 'http://sok.loc');
 define('ROOT_PATH', dirname(dirname(__FILE__)));
 define('APP_PATH', ROOT_PATH . '/app');
 

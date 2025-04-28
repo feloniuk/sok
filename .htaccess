@@ -1,25 +1,13 @@
 RewriteEngine On
 RewriteBase /
 
-# Якщо запит не файл і не директорія - перенаправляємо на index.php
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# Разрешаем прямой доступ к файлам в папке public
+RewriteRule ^public/(.*)$ public/$1 [L]
+
+# Если запрашиваемый файл или директория существуют, используем их
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# В противном случае перенаправляем все на index.php
 RewriteRule ^(.*)$ public/index.php/$1 [L,QSA]
-
-# Захист системних файлів
-<FilesMatch "^\.htaccess|config\.php|init\.php|database\.php">
-    Order deny,allow
-    Deny from all
-</FilesMatch>
-
-# Включити модуль безпеки
-<IfModule mod_headers.c>
-    # Захист від XSS атак
-    Header set X-XSS-Protection "1; mode=block"
-    
-    # Запобігання clickjacking
-    Header always append X-Frame-Options SAMEORIGIN
-    
-    # Заборона на вгадування MIME типів
-    Header set X-Content-Type-Options nosniff
-</IfModule>

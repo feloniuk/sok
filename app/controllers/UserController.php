@@ -50,7 +50,7 @@ class UserController extends BaseController {
      *
      * @param int $id
      */
-    public function view($id) {
+    public function view($id, $data = []) {
         // Проверка прав доступа
         if (!has_role('admin')) {
             $this->setFlash('error', 'У вас нет доступа к этой странице.');

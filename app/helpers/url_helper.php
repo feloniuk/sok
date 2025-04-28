@@ -20,7 +20,7 @@ function base_url($path = '') {
  */
 function asset_url($path) {
     $path = ltrim($path, '/');
-    return base_url("assets/$path");
+    return BASE_URL . "public/assets/$path";
 }
 
 /**

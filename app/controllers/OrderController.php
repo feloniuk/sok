@@ -78,7 +78,7 @@ class OrderController extends BaseController {
      *
      * @param int $id
      */
-    public function view($id) {
+    public function view($id, $data = []) {
         // Проверка авторизации
         if (!is_logged_in()) {
             $this->redirect('auth/login');

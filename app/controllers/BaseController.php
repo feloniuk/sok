@@ -32,7 +32,16 @@ class BaseController {
         $content = ob_get_clean();
         
         // Вывод содержимого
-        echo $content;
+        $layoutPath = APP_PATH . '/views/layouts/main.php';
+        if (file_exists($layoutPath)) {
+            include $layoutPath;
+        } else {
+            echo $content;
+        }
+    }
+
+    protected function displayView($id, $viewPath, $data = []) {
+        return $this->view($viewPath, $data);
     }
     
     // Перенаправление на другой URL
