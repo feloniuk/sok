@@ -42,7 +42,7 @@ class Product extends BaseModel {
      * Поиск продуктов
      *
      * @param string $keyword
-     * @param array $fields (опционально)
+     * @param array $fields
      * @return array
      */
     public function search($keyword, $fields = null) {

@@ -1,5 +1,5 @@
 <?php
-// app/models/SalesAnalytics.php - Модель для аналитики продаж
+// app/models/SalesAnalytics.php - Модель для аналітики продажів
 
 class SalesAnalytics extends BaseModel {
     protected $table = 'sales_analytics';
@@ -8,32 +8,32 @@ class SalesAnalytics extends BaseModel {
     ];
     
     /**
-     * Обновление данных продаж для продукта на указанную дату
-     *
-     * @param string $date
-     * @param int $productId
-     * @param int $quantity
-     * @param float $revenue
-     * @param float $cost
-     * @param float $profit
+     * Оновлення або створення запису аналітики продажів
+     * 
+     * @param string $date Дата у форматі Y-m-d
+     * @param int $productId ID продукту
+     * @param int $quantity Кількість проданих одиниць
+     * @param float $revenue Виручка
+     * @param float $cost Собівартість
+     * @param float $profit Прибуток
      * @return bool
      */
     public function updateSalesData($date, $productId, $quantity, $revenue, $cost, $profit) {
-        // Поиск существующей записи
-        $record = $this->findOne('date = ? AND product_id = ?', [$date, $productId]);
+        // Перевірка існування запису
+        $existingRecord = $this->findOne('date = ? AND product_id = ?', [$date, $productId]);
         
-        if ($record) {
-            // Обновление существующей записи
+        if ($existingRecord) {
+            // Оновлення існуючого запису
             $data = [
-                'quantity_sold' => $record['quantity_sold'] + $quantity,
-                'revenue' => $record['revenue'] + $revenue,
-                'cost' => $record['cost'] + $cost,
-                'profit' => $record['profit'] + $profit
+                'quantity_sold' => $existingRecord['quantity_sold'] + $quantity,
+                'revenue' => $existingRecord['revenue'] + $revenue,
+                'cost' => $existingRecord['cost'] + $cost,
+                'profit' => $existingRecord['profit'] + $profit
             ];
             
-            return $this->update($record['id'], $data);
+            return $this->update($existingRecord['id'], $data);
         } else {
-            // Создание новой записи
+            // Створення нового запису
             $data = [
                 'date' => $date,
                 'product_id' => $productId,
@@ -48,18 +48,20 @@ class SalesAnalytics extends BaseModel {
     }
     
     /**
-     * Получение данных продаж за период
-     *
-     * @param string $startDate
-     * @param string $endDate
-     * @param int $productId
+     * Отримання даних продажів за період
+     * 
+     * @param string $startDate Початкова дата
+     * @param string $endDate Кінцева дата
+     * @param int|null $productId ID продукту (необов'язково)
      * @return array
      */
     public function getSalesForPeriod($startDate, $endDate, $productId = null) {
-        $sql = 'SELECT sa.date, sa.quantity_sold, sa.revenue, sa.cost, sa.profit, p.name as product_name 
-                FROM sales_analytics sa 
-                JOIN products p ON sa.product_id = p.id 
+        $sql = 'SELECT sa.date, sa.product_id, p.name as product_name, 
+                sa.quantity_sold, sa.revenue, sa.cost, sa.profit
+                FROM sales_analytics sa
+                JOIN products p ON sa.product_id = p.id
                 WHERE sa.date BETWEEN ? AND ?';
+        
         $params = [$startDate, $endDate];
         
         if ($productId) {
@@ -67,149 +69,116 @@ class SalesAnalytics extends BaseModel {
             $params[] = $productId;
         }
         
-        $sql .= ' ORDER BY sa.date';
+        $sql .= ' ORDER BY sa.date, p.name';
         
         return $this->db->getAll($sql, $params);
     }
     
     /**
-     * Получение общих показателей продаж за период
-     *
-     * @param string $startDate
-     * @param string $endDate
+     * Отримання загальних показників за період
+     * 
+     * @param string $startDate Початкова дата
+     * @param string $endDate Кінцева дата
      * @return array
      */
-    public function getTotalsForPeriod($startDate, $endDate) {
-        $sql = 'SELECT SUM(quantity_sold) as total_quantity, 
-                       SUM(revenue) as total_revenue, 
-                       SUM(cost) as total_cost, 
-                       SUM(profit) as total_profit 
-                FROM sales_analytics 
+    public function getTotalsByPeriod($startDate, $endDate) {
+        $sql = 'SELECT 
+                SUM(quantity_sold) as total_quantity, 
+                SUM(revenue) as total_revenue, 
+                SUM(cost) as total_cost, 
+                SUM(profit) as total_profit,
+                ROUND(SUM(profit) / SUM(revenue) * 100, 2) as profit_margin
+                FROM sales_analytics
                 WHERE date BETWEEN ? AND ?';
         
         return $this->db->getOne($sql, [$startDate, $endDate]);
     }
     
     /**
-     * Получение топ продуктов по продажам
-     *
-     * @param string $startDate
-     * @param string $endDate
-     * @param int $limit
+     * Отримання топ продуктів за продажами
+     * 
+     * @param string $startDate Початкова дата
+     * @param string $endDate Кінцева дата
+     * @param int $limit Кількість записів
      * @return array
      */
-    public function getTopSellingProducts($startDate, $endDate, $limit = 10) {
-        $sql = 'SELECT p.id, p.name, 
-                       SUM(sa.quantity_sold) as total_quantity, 
-                       SUM(sa.revenue) as total_revenue, 
-                       SUM(sa.profit) as total_profit 
-                FROM sales_analytics sa 
-                JOIN products p ON sa.product_id = p.id 
-                WHERE sa.date BETWEEN ? AND ? 
-                GROUP BY p.id, p.name 
-                ORDER BY total_quantity DESC 
+    public function getTopProducts($startDate, $endDate, $limit = 10) {
+        $sql = 'SELECT p.id, p.name, p.image, c.name as category_name,
+                SUM(sa.quantity_sold) as total_quantity, 
+                SUM(sa.revenue) as total_revenue, 
+                SUM(sa.profit) as total_profit,
+                ROUND(SUM(sa.profit) / SUM(sa.revenue) * 100, 2) as profit_margin
+                FROM sales_analytics sa
+                JOIN products p ON sa.product_id = p.id
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE sa.date BETWEEN ? AND ?
+                GROUP BY p.id, p.name, p.image, c.name
+                ORDER BY total_quantity DESC
                 LIMIT ?';
         
         return $this->db->getAll($sql, [$startDate, $endDate, $limit]);
     }
     
     /**
-     * Получение данных продаж по категориям
-     *
-     * @param string $startDate
-     * @param string $endDate
+     * Отримання продажів за категоріями
+     * 
+     * @param string $startDate Початкова дата
+     * @param string $endDate Кінцева дата
      * @return array
      */
     public function getSalesByCategory($startDate, $endDate) {
         $sql = 'SELECT c.id, c.name, 
-                       SUM(sa.quantity_sold) as total_quantity, 
-                       SUM(sa.revenue) as total_revenue, 
-                       SUM(sa.profit) as total_profit 
-                FROM sales_analytics sa 
-                JOIN products p ON sa.product_id = p.id 
-                JOIN categories c ON p.category_id = c.id 
-                WHERE sa.date BETWEEN ? AND ? 
-                GROUP BY c.id, c.name 
+                SUM(sa.quantity_sold) as total_quantity, 
+                SUM(sa.revenue) as total_revenue, 
+                SUM(sa.profit) as total_profit,
+                ROUND(SUM(sa.profit) / SUM(sa.revenue) * 100, 2) as profit_margin
+                FROM sales_analytics sa
+                JOIN products p ON sa.product_id = p.id
+                JOIN categories c ON p.category_id = c.id
+                WHERE sa.date BETWEEN ? AND ?
+                GROUP BY c.id, c.name
                 ORDER BY total_revenue DESC';
         
         return $this->db->getAll($sql, [$startDate, $endDate]);
     }
     
     /**
-     * Получение динамики продаж по дням
-     *
-     * @param string $startDate
-     * @param string $endDate
+     * Отримання щоденних продажів за період
+     * 
+     * @param string $startDate Початкова дата
+     * @param string $endDate Кінцева дата
      * @return array
      */
     public function getDailySales($startDate, $endDate) {
         $sql = 'SELECT date, 
-                       SUM(quantity_sold) as quantity, 
-                       SUM(revenue) as revenue, 
-                       SUM(profit) as profit 
-                FROM sales_analytics 
-                WHERE date BETWEEN ? AND ? 
-                GROUP BY date 
+                SUM(quantity_sold) as total_quantity, 
+                SUM(revenue) as total_revenue, 
+                SUM(profit) as total_profit
+                FROM sales_analytics
+                WHERE date BETWEEN ? AND ?
+                GROUP BY date
                 ORDER BY date';
         
         return $this->db->getAll($sql, [$startDate, $endDate]);
     }
     
     /**
-     * Получение динамики продаж по месяцам
-     *
-     * @param int $year
+     * Отримання щомісячних продажів за рік
+     * 
+     * @param int $year Рік
      * @return array
      */
     public function getMonthlySales($year) {
-        $sql = 'SELECT MONTH(date) as month, 
-                       SUM(quantity_sold) as quantity, 
-                       SUM(revenue) as revenue, 
-                       SUM(profit) as profit 
-                FROM sales_analytics 
-                WHERE YEAR(date) = ? 
-                GROUP BY MONTH(date) 
+        $sql = 'SELECT 
+                MONTH(date) as month, 
+                SUM(quantity_sold) as total_quantity, 
+                SUM(revenue) as total_revenue, 
+                SUM(profit) as total_profit
+                FROM sales_analytics
+                WHERE YEAR(date) = ?
+                GROUP BY MONTH(date)
                 ORDER BY MONTH(date)';
         
         return $this->db->getAll($sql, [$year]);
-    }
-    
-    /**
-     * Получение данных для анализа эффективности продаж продукта
-     *
-     * @param int $productId
-     * @param string $startDate
-     * @param string $endDate
-     * @return array
-     */
-    public function getProductPerformance($productId, $startDate, $endDate) {
-        // Получаем данные продаж по дням
-        $dailySales = $this->getSalesForPeriod($startDate, $endDate, $productId);
-        
-        // Получаем общие показатели
-        $totals = $this->db->getOne(
-            'SELECT SUM(quantity_sold) as total_quantity, 
-                    SUM(revenue) as total_revenue, 
-                    SUM(profit) as total_profit,
-                    ROUND(AVG(quantity_sold), 2) as avg_daily_quantity,
-                    ROUND(AVG(revenue), 2) as avg_daily_revenue,
-                    ROUND(AVG(profit), 2) as avg_daily_profit
-             FROM sales_analytics 
-             WHERE product_id = ? AND date BETWEEN ? AND ?',
-            [$productId, $startDate, $endDate]
-        );
-        
-        // Расчет маржинальности (отношение прибыли к выручке)
-        $marginality = 0;
-        if (!empty($totals) && $totals['total_revenue'] > 0) {
-            $marginality = round(($totals['total_profit'] / $totals['total_revenue']) * 100, 2);
-        }
-        
-        // Формирование результата
-        return [
-            'daily_sales' => $dailySales,
-            'totals' => $totals,
-            'marginality' => $marginality
-        ];
     }
 }

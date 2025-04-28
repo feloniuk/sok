@@ -70,7 +70,7 @@ class Category extends BaseModel {
      * Поиск категорий
      *
      * @param string $keyword
-     * @param array $fields (опционально)
+     * @param array $fields
      * @return array
      */
     public function search($keyword, $fields = null) {

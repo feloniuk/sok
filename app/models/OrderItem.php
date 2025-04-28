@@ -1,14 +1,14 @@
 <?php
-// app/models/OrderItem.php - Модель для товаров в заказе
+// app/models/OrderItem.php - Модель для товарів у замовленні
 
 class OrderItem extends BaseModel {
     protected $table = 'order_items';
     protected $fillable = [
-        'order_id', 'product_id', 'quantity', 'price'
+        'order_id', 'product_id', 'quantity', 'price', 'warehouse_id'
     ];
     
     /**
-     * Получение всех товаров для заказа
+     * Отримання всіх товарів для певного замовлення
      *
      * @param int $orderId
      * @return array
@@ -18,13 +18,13 @@ class OrderItem extends BaseModel {
     }
     
     /**
-     * Получение товаров заказа с информацией о продуктах
+     * Отримання товарів замовлення з інформацією про продукти
      *
      * @param int $orderId
      * @return array
      */
     public function getWithProductInfo($orderId) {
-        $sql = 'SELECT oi.*, p.name as product_name, p.image 
+        $sql = 'SELECT oi.*, p.name as product_name, p.image, p.category_id 
                 FROM order_items oi 
                 JOIN products p ON oi.product_id = p.id 
                 WHERE oi.order_id = ?';
@@ -33,7 +33,7 @@ class OrderItem extends BaseModel {
     }
     
     /**
-     * Вычисление общей суммы заказа
+     * Обчислення загальної суми замовлення
      *
      * @param int $orderId
      * @return float
@@ -44,7 +44,7 @@ class OrderItem extends BaseModel {
     }
     
     /**
-     * Удаление всех товаров из заказа
+     * Видалення всіх товарів із замовлення
      *
      * @param int $orderId
      * @return bool
@@ -56,19 +56,38 @@ class OrderItem extends BaseModel {
     }
     
     /**
-     * Проверка наличия продукта в заказе
+     * Отримання популярних продуктів (для рекомендацій)
+     *
+     * @param int $limit
+     * @return array
+     */
+    public function getPopularProducts($limit = 5) {
+        $sql = 'SELECT p.id, p.name, p.price, p.image, SUM(oi.quantity) as total_ordered 
+                FROM order_items oi 
+                JOIN products p ON oi.product_id = p.id 
+                JOIN orders o ON oi.order_id = o.id 
+                WHERE o.status != "cancelled" AND p.is_active = 1
+                GROUP BY p.id, p.name, p.price, p.image 
+                ORDER BY total_ordered DESC 
+                LIMIT ?';
+        
+        return $this->db->getAll($sql, [$limit]);
+    }
+    
+    /**
+     * Перевірка, чи є продукт у замовленні
      *
      * @param int $orderId
      * @param int $productId
      * @return bool
      */
-    public function productExists($orderId, $productId) {
+    public function hasProduct($orderId, $productId) {
         $sql = 'SELECT COUNT(*) FROM order_items WHERE order_id = ? AND product_id = ?';
         return $this->db->getValue($sql, [$orderId, $productId]) > 0;
     }
     
     /**
-     * Обновление количества продукта в заказе
+     * Оновлення кількості товару в замовленні
      *
      * @param int $orderId
      * @param int $productId
@@ -79,42 +98,5 @@ class OrderItem extends BaseModel {
         $sql = 'UPDATE order_items SET quantity = ? WHERE order_id = ? AND product_id = ?';
         $this->db->query($sql, [$quantity, $orderId, $productId]);
         return true;
-    }
-    
-    /**
-     * Получение самых популярных продуктов
-     *
-     * @param int $limit
-     * @return array
-     */
-    public function getTopProducts($limit = 5) {
-        $sql = 'SELECT p.id, p.name, p.price, p.image, SUM(oi.quantity) as total_sold 
-                FROM order_items oi 
-                JOIN products p ON oi.product_id = p.id 
-                JOIN orders o ON oi.order_id = o.id 
-                WHERE o.status != "cancelled" 
-                GROUP BY p.id, p.name, p.price, p.image 
-                ORDER BY total_sold DESC 
-                LIMIT ?';
-        
-        return $this->db->getAll($sql, [$limit]);
-    }
-    
-    /**
-     * Получение статистики продаж по категориям
-     *
-     * @return array
-     */
-    public function getSalesByCategory() {
-        $sql = 'SELECT c.id, c.name, COUNT(oi.id) as items_count, SUM(oi.quantity) as quantity, SUM(oi.price * oi.quantity) as total 
-                FROM order_items oi 
-                JOIN products p ON oi.product_id = p.id 
-                JOIN categories c ON p.category_id = c.id 
-                JOIN orders o ON oi.order_id = o.id 
-                WHERE o.status != "cancelled" 
-                GROUP BY c.id, c.name 
-                ORDER BY total DESC';
-        
-        return $this->db->getAll($sql);
     }
 }

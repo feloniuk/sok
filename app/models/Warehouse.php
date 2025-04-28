@@ -167,9 +167,13 @@ class Warehouse extends BaseModel {
      * Пошук складів
      *
      * @param string $keyword
+     * @param array $fields
      * @return array
      */
-    public function search($keyword) {
-        return parent::search($keyword, ['name', 'address']);
+    public function search($keyword, $fields = null) {
+        if ($fields === null) {
+            $fields = ['name', 'address'];
+        }
+        return parent::search($keyword, $fields);
     }
 }

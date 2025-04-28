@@ -138,7 +138,7 @@ class User extends BaseModel {
      * Поиск пользователей
      *
      * @param string $keyword
-     * @param array $fields (опционально)
+     * @param array $fields
      * @return array
      */
     public function search($keyword, $fields = null) {
@@ -147,7 +147,6 @@ class User extends BaseModel {
         }
         return parent::search($keyword, $fields);
     }
-    
     /**
      * Получение полного имени пользователя
      *

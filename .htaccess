@@ -1,5 +1,12 @@
 RewriteEngine On
 
-# Перенаправление всех запросов в папку public
-RewriteCond %{REQUEST_URI} !^/public/
-RewriteRule ^(.*)$ public/$1 [L]
+# Если запрос к директории public/assets, обслуживаем напрямую
+RewriteRule ^public/assets/(.*)$ public/assets/$1 [L]
+
+# Если запрос к существующему файлу/папке, обслуживаем напрямую
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Все остальные запросы перенаправляем в public/index.php
+RewriteRule ^(.*)$ public/index.php [L,QSA]
