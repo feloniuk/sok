@@ -165,6 +165,24 @@ $extra_css = '
     .tracking-step.completed .tracking-dot {
         background-color: #28a745;
     }
+    
+    .recommended-product-card {
+        transition: all 0.3s ease;
+        height: 100%;
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .recommended-product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .recommended-product-card .card-img-top {
+        height: 160px;
+        object-fit: cover;
+    }
 </style>';
 
 // Визначення поточного етапу замовлення
@@ -485,4 +503,28 @@ if (!empty($recommendedProducts)):
             <div class="card-body">
                 <div class="row">
                     <?php foreach ($recommendedProducts as $product): ?>
-                        <div class
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card recommended-product-card h-100">
+                                <img src="<?= $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg') ?>" 
+                                     class="card-img-top" alt="<?= $product['name'] ?>">
+                                <div class="card-body">
+                                    <h6 class="card-title"><?= $product['name'] ?></h6>
+                                    <p class="card-text fw-bold text-primary"><?= number_format($product['price'], 2) ?> грн</p>
+                                </div>
+                                <div class="card-footer bg-white border-top-0">
+                                    <a href="<?= base_url('products/view/' . $product['id']) ?>" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i> Деталі
+                                    </a>
+                                    <a href="<?= base_url('orders/create?product_id=' . $product['id']) ?>" class="btn btn-sm btn-success">
+                                        <i class="fas fa-cart-plus me-1"></i> Купити
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>

@@ -87,7 +87,9 @@ $router->get('dashboard', 'DashboardController', 'index', [new AuthMiddleware()]
 $router->get('dashboard/chart_data', 'DashboardController', 'getChartData', [new AuthMiddleware()]);
 
 // Продукты
+
 $router->get('products', 'ProductController', 'index');
+$router->get('products/get_product_json', 'ProductController', 'getProductJson');
 $router->get('products/view/{id}', 'ProductController', 'details');
 $router->get('products/create', 'ProductController', 'create', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->post('products/store', 'ProductController', 'store', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
@@ -106,6 +108,8 @@ $router->post('categories/update/{id}', 'CategoryController', 'update', [RoleMid
 $router->get('categories/delete/{id}', 'CategoryController', 'delete', [RoleMiddleware::allow(['admin'])]);
 
 // Заказы
+$router->get('orders/cart', 'OrderController', 'cartAction', [new AuthMiddleware()]);
+$router->post('orders/cart', 'OrderController', 'cartAction', [new AuthMiddleware()]);
 $router->get('orders', 'OrderController', 'index', [new AuthMiddleware()]);
 $router->get('orders/view/{id}', 'OrderController', 'details', [new AuthMiddleware()]);
 $router->get('orders/create', 'OrderController', 'create', [RoleMiddleware::allow(['admin', 'sales_manager', 'customer'])]);

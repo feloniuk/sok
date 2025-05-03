@@ -1,68 +1,53 @@
 <?php
-// app/views/customer/orders/create.php - Сторінка створення нового замовлення для клієнта
-$title = 'Створення нового замовлення';
+// app/views/customer/orders/create.php - Сторінка створення замовлення
+$title = 'Оформлення замовлення';
 
 // Підключення додаткових CSS
 $extra_css = '
 <style>
     .order-form-card {
         border-radius: 0.5rem;
-        overflow: hidden;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        border: none;
     }
     
-    .order-item {
-        background-color: #f8f9fa;
-        border-radius: 0.5rem;
-        padding: 15px;
-        margin-bottom: 15px;
-        position: relative;
-    }
-    
-    .product-image-preview {
-        width: 50px;
-        height: 50px;
-        object-fit: cover;
-        border-radius: 4px;
-        margin-right: 10px;
-    }
-    
-    .remove-item-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
+    .product-item {
         display: flex;
         align-items: center;
-        justify-content: center;
+        padding: 10px;
+        border-bottom: 1px solid #e9ecef;
     }
     
-    .product-stock {
-        color: #6c757d;
-        font-size: 0.85rem;
-    }
-    
-    .product-card {
-        transition: all 0.3s ease;
-        overflow: hidden;
-        height: 100%;
-        border: none;
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 15px;
-    }
-    
-    .product-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    }
-    
-    .product-card .card-img-top {
-        height: 150px;
+    .product-image {
+        width: 80px;
+        height: 80px;
         object-fit: cover;
+        margin-right: 15px;
+        border-radius: 0.25rem;
+    }
+    
+    .product-details {
+        flex-grow: 1;
+    }
+    
+    .quantity-control {
+        display: flex;
+        align-items: center;
+    }
+    
+    .quantity-control input {
+        width: 60px;
+        text-align: center;
+        margin: 0 10px;
+    }
+    
+    .remove-product {
+        color: #dc3545;
+        cursor: pointer;
+    }
+    
+    .total-price {
+        font-weight: bold;
+        color: #007bff;
     }
 </style>';
 
@@ -70,371 +55,285 @@ $extra_css = '
 $extra_js = '
 <script>
 $(document).ready(function() {
-    // Лічильник для індексації товарів
-    let itemCounter = $(".order-item").length;
-    
-    // Додавання нового товару
-    $("#addItemBtn").on("click", function() {
-        const itemHtml = `
-            <div class="order-item">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="product_${itemCounter}" class="form-label">Продукт <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control product-input" id="product_${itemCounter}" placeholder="Почніть вводити назву продукту..." required>
-                        <input type="hidden" name="product_id[]" class="product-id" required>
-                        <small class="product-stock"></small>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="quantity_${itemCounter}" class="form-label">Кількість <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control item-quantity" id="quantity_${itemCounter}" name="quantity[]" min="1" value="1" required>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="price_${itemCounter}" class="form-label">Ціна <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <input type="number" class="form-control item-price" id="price_${itemCounter}" name="price[]" step="0.01" required readonly>
-                            <span class="input-group-text">грн</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-end">
-                    <strong>Сума: <span class="item-total">0.00 грн</span></strong>
-                </div>
-            </div>
-        `;
-        
-        $("#itemsContainer").append(itemHtml);
-        initAutocomplete($(`#product_${itemCounter}`));
-        itemCounter++;
-        updateTotalAmount();
-    });
-    
-    // Видалення товару
-    $(document).on("click", ".remove-item-btn", function() {
-        $(this).closest(".order-item").remove();
-        updateTotalAmount();
-    });
-    
-    // Оновлення суми при зміні кількості або ціни
-    $(document).on("input", ".item-quantity, .item-price", function() {
-        updateItemTotal($(this).closest(".order-item"));
-        updateTotalAmount();
-    });
-    
-    // Вибір існуючого продукту зі списку
+    // Додавання товару з каталогу
     $(".add-product-btn").on("click", function() {
         const productId = $(this).data("product-id");
-        const productName = $(this).data("product-name");
-        const productPrice = parseFloat($(this).data("product-price"));
-        const productStock = parseInt($(this).data("product-stock"));
-        const productImage = $(this).data("product-image");
+        const quantity = 1;
         
-        // Створення нового елемента замовлення
-        const itemHtml = `
-            <div class="order-item">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Продукт</label>
-                        <div class="d-flex align-items-center">
-                            <img src="${productImage}" class="product-image-preview">
-                            <div>
-                                <strong>${productName}</strong>
-                                <input type="hidden" name="product_id[]" value="${productId}">
-                            </div>
-                        </div>
-                        <small class="product-stock">
-                            <i class="fas fa-box me-1"></i> В наявності: ${productStock} шт.
-                        </small>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="quantity_${itemCounter}" class="form-label">Кількість <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control item-quantity" id="quantity_${itemCounter}" name="quantity[]" min="1" max="${productStock}" value="1" required>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="price_${itemCounter}" class="form-label">Ціна</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control item-price" id="price_${itemCounter}" name="price[]" value="${productPrice.toFixed(2)}" readonly>
-                            <span class="input-group-text">грн</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-end">
-                    <strong>Сума: <span class="item-total">${productPrice.toFixed(2)} грн</span></strong>
-                </div>
-            </div>
-        `;
-        
-        $("#itemsContainer").append(itemHtml);
-        itemCounter++;
-        updateTotalAmount();
-    });
-    
-    // Ініціалізація автозаповнення для продуктів
-    function initAutocomplete(element) {
-        element.autocomplete({
-            source: function(request, response) {
-                $.ajax({
-                    url: "' . base_url("orders/products_json") . '",
-                    dataType: "json",
-                    data: { term: request.term },
-                    success: function(data) {
-                        response(data);
-                    }
-                });
+        $.ajax({
+            url: "' . base_url('orders/cart') . '",
+            type: "POST",
+            data: { 
+                action: "add", 
+                product_id: productId,
+                quantity: quantity
             },
-            minLength: 2,
-            select: function(event, ui) {
-                const item = $(this).closest(".order-item");
-                item.find(".product-id").val(ui.item.id);
-                item.find(".item-price").val(ui.item.price);
-                item.find(".product-stock").html(`<i class="fas fa-box me-1"></i> В наявності: ${ui.item.stock} шт.`);
-                
-                // Встановлення максимальної кількості
-                item.find(".item-quantity").attr("max", ui.item.stock);
-                
-                updateItemTotal(item);
-                updateTotalAmount();
-                return true;
+            dataType: "json",
+            success: function(response) {
+                if (response.success) {
+                    // Оновити кошик
+                    loadCartItems();
+                    // Показати повідомлення
+                    alert(response.message);
+                }
+            },
+            error: function(xhr) {
+                alert("Помилка: " + (xhr.responseJSON ? xhr.responseJSON.error : "Неможливо додати товар"));
             }
-        }).autocomplete("instance")._renderItem = function(ul, item) {
-            return $("<li>")
-                .append(`<div class="d-flex align-items-center">
-                    <img src="${item.image}" class="product-image-preview">
-                    <div>
-                        <div>${item.label}</div>
-                        <small class="text-muted">${item.price} грн</small>
-                    </div>
-                </div>`)
-                .appendTo(ul);
-        };
-    }
-    
-    // Розрахунок вартості товару
-    function updateItemTotal(item) {
-        const quantity = parseFloat(item.find(".item-quantity").val()) || 0;
-        const price = parseFloat(item.find(".item-price").val()) || 0;
-        const total = quantity * price;
-        
-        item.find(".item-total").text(total.toFixed(2) + " грн");
-    }
-    
-    // Розрахунок загальної вартості замовлення
-    function updateTotalAmount() {
-        let total = 0;
-        
-        $(".order-item").each(function() {
-            const quantity = parseFloat($(this).find(".item-quantity").val()) || 0;
-            const price = parseFloat($(this).find(".item-price").val()) || 0;
-            total += quantity * price;
         });
-        
-        $("#orderTotal").text(total.toFixed(2) + " грн");
-        $("#totalAmountInput").val(total.toFixed(2));
-    }
-    
-    // Ініціалізація автозаповнення для існуючих полів
-    $(".product-input").each(function() {
-        initAutocomplete($(this));
     });
     
-    // Запуск першого товару, якщо немає жодного і немає товарів у списку рекомендованих
-    if ($(".order-item").length === 0 && $(".recommended-products .product-card").length === 0) {
-        $("#addItemBtn").click();
+    // Видалення товару з кошика
+    $(document).on("click", ".remove-product", function() {
+        const productId = $(this).data("product-id");
+        
+        $.ajax({
+            url: "' . base_url('orders/cart') . '",
+            type: "POST",
+            data: { 
+                action: "remove", 
+                product_id: productId 
+            },
+            dataType: "json",
+            success: function(response) {
+                if (response.success) {
+                    // Оновити кошик
+                    loadCartItems();
+                }
+            }
+        });
+    });
+    
+    // Зміна кількості товару
+    $(document).on("change", ".quantity-input", function() {
+        const productId = $(this).data("product-id");
+        const quantity = parseInt($(this).val());
+        
+        if (quantity > 0) {
+            $.ajax({
+                url: "' . base_url('orders/cart') . '",
+                type: "POST",
+                data: { 
+                    action: "update", 
+                    product_id: productId,
+                    quantity: quantity
+                },
+                dataType: "json",
+                success: function(response) {
+                    if (response.success) {
+                        // Оновити кошик
+                        loadCartItems();
+                    }
+                }
+            });
+        }
+    });
+    
+    // Збільшення кількості
+    $(document).on("click", ".increase-quantity", function() {
+        const input = $(this).siblings(".quantity-input");
+        const currentValue = parseInt(input.val());
+        const maxValue = parseInt(input.attr("max"));
+        
+        if (currentValue < maxValue) {
+            input.val(currentValue + 1).trigger("change");
+        }
+    });
+    
+    // Зменшення кількості
+    $(document).on("click", ".decrease-quantity", function() {
+        const input = $(this).siblings(".quantity-input");
+        const currentValue = parseInt(input.val());
+        
+        if (currentValue > 1) {
+            input.val(currentValue - 1).trigger("change");
+        }
+    });
+    
+    // Завантаження вмісту кошика
+    function loadCartItems() {
+        $.ajax({
+            url: "' . base_url('orders/cart') . '",
+            type: "GET",
+            data: { action: "get" },
+            dataType: "json",
+            success: function(response) {
+                if (response.success) {
+                    // Оновлення вмісту кошика
+                    renderCartItems(response.items);
+                    // Оновлення загальної суми
+                    $("#totalPrice").text(response.cart_total.toFixed(2) + " грн");
+                    // Активація кнопки оформлення
+                    $("#submitOrderBtn").prop("disabled", response.cart_count === 0);
+                    
+                    // Показ/приховування порожнього повідомлення
+                    if (Object.keys(response.items).length === 0) {
+                        $("#emptyCartMessage").show();
+                    } else {
+                        $("#emptyCartMessage").hide();
+                    }
+                }
+            }
+        });
     }
+    
+    // Рендеринг товарів у кошику
+    function renderCartItems(items) {
+        const container = $("#orderItemsContainer");
+        container.empty();
+        
+        $.each(items, function(id, item) {
+            const itemHtml = `
+                <div class="product-item" data-product-id="${item.id}">
+                    <img src="${item.image ? "' . upload_url('') . '" + item.image : "' . asset_url('images/no-image.jpg') . '"}" 
+                         alt="${item.name}" class="product-image">
+                    <div class="product-details">
+                        <h6 class="mb-1">${item.name}</h6>
+                        <p class="text-muted mb-1">${parseFloat(item.price).toFixed(2)} грн</p>
+                    </div>
+                    <div class="quantity-control">
+                        <button type="button" class="btn btn-sm btn-outline-secondary decrease-quantity">-</button>
+                        <input type="number" 
+                               class="form-control form-control-sm quantity-input" 
+                               value="${item.quantity}" 
+                               min="1" 
+                               max="${item.stock_quantity}"
+                               data-product-id="${item.id}">
+                        <button type="button" class="btn btn-sm btn-outline-secondary increase-quantity">+</button>
+                    </div>
+                    <div class="ms-3">
+                        <span class="item-total">${(item.price * item.quantity).toFixed(2)} грн</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-3 remove-product" data-product-id="${item.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            container.append(itemHtml);
+        });
+    }
+    
+    // Ініціалізація кошика при завантаженні сторінки
+    loadCartItems();
 });
 </script>';
+
+// Перевірка наявності товарів у кошику
+$hasCartItems = !empty($cart_items);
 ?>
 
-<div class="row">
-    <div class="col-md-12 mb-4">
+<div class="row mb-4">
+    <div class="col-md-12">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="<?= base_url() ?>">Головна</a></li>
-                <li class="breadcrumb-item"><a href="<?= base_url('orders') ?>">Мої замовлення</a></li>
-                <li class="breadcrumb-item active">Створення нового замовлення</li>
+                <li class="breadcrumb-item"><a href="<?= base_url('products') ?>">Каталог</a></li>
+                <li class="breadcrumb-item active">Створення замовлення</li>
             </ol>
         </nav>
     </div>
 </div>
 
 <div class="row">
-    <div class="col-md-12">
-        <form action="<?= base_url('orders/store') ?>" method="POST" class="needs-validation" novalidate>
-            <?= csrf_field() ?>
-            
-            <div class="row">
-                <!-- Інформація про замовлення -->
-                <div class="col-md-4 mb-4">
-                    <div class="card order-form-card h-100">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">Інформація про замовлення</h5>
-                        </div>
-                        <div class="card-body">                            
-                            <div class="mb-3">
-                                <label for="shipping_address" class="form-label">Адреса доставки <span class="text-danger">*</span></label>
-                                <textarea class="form-control <?= has_error('shipping_address') ? 'is-invalid' : '' ?>" id="shipping_address" name="shipping_address" rows="3" required><?= old('shipping_address') ?></textarea>
-                                <?php if (has_error('shipping_address')): ?>
-                                    <div class="invalid-feedback"><?= get_error('shipping_address') ?></div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="payment_method" class="form-label">Спосіб оплати <span class="text-danger">*</span></label>
-                                <select class="form-select <?= has_error('payment_method') ? 'is-invalid' : '' ?>" id="payment_method" name="payment_method" required>
-                                    <option value="">Виберіть спосіб оплати</option>
-                                    <option value="credit_card" <?= old('payment_method') == 'credit_card' ? 'selected' : '' ?>>Кредитна картка</option>
-                                    <option value="bank_transfer" <?= old('payment_method') == 'bank_transfer' ? 'selected' : '' ?>>Банківський переказ</option>
-                                    <option value="cash_on_delivery" <?= old('payment_method') == 'cash_on_delivery' ? 'selected' : '' ?>>Оплата при отриманні</option>
-                                </select>
-                                <?php if (has_error('payment_method')): ?>
-                                    <div class="invalid-feedback"><?= get_error('payment_method') ?></div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="notes" class="form-label">Примітки</label>
-                                <textarea class="form-control <?= has_error('notes') ? 'is-invalid' : '' ?>" id="notes" name="notes" rows="3" placeholder="Додаткова інформація для замовлення (за бажанням)"><?= old('notes') ?></textarea>
-                                <?php if (has_error('notes')): ?>
-                                    <div class="invalid-feedback"><?= get_error('notes') ?></div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="alert alert-info">
-                                <div class="d-flex">
-                                    <div class="me-3">
-                                        <i class="fas fa-info-circle fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="alert-heading">Загальна сума замовлення:</h5>
-                                        <p class="mb-0 fs-4 fw-bold" id="orderTotal">0.00 грн</p>
-                                        <input type="hidden" name="total_amount" id="totalAmountInput" value="0">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <div class="col-md-8">
+        <div class="card order-form-card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-shopping-cart me-2"></i> Ваше замовлення
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="orderItemsContainer"></div>
                 
-                <!-- Товари -->
-                <div class="col-md-8 mb-4">
-                    <div class="card order-form-card">
-                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Товари у замовленні</h5>
-                            <button type="button" id="addItemBtn" class="btn btn-light btn-sm">
-                                <i class="fas fa-plus me-1"></i> Додати товар
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <?php if (has_error('products')): ?>
-                                <div class="alert alert-danger">
-                                    <?= get_error('products') ?>
-                                </div>
-                            <?php endif; ?>
-                            
-                            <div id="itemsContainer">
-                                <?php
-                                // Відтворення раніше доданих товарів (при помилці валідації)
-                                if (isset($_POST['product_id']) && is_array($_POST['product_id'])) {
-                                    foreach ($_POST['product_id'] as $index => $productId) {
-                                        $quantity = $_POST['quantity'][$index] ?? 1;
-                                        $price = $_POST['price'][$index] ?? 0;
-                                        // Тут можна було б отримати деталі продукту з бази даних для відображення
-                                    }
-                                }
-                                
-                                // Якщо передано product_id через GET (додавання з каталогу)
-                                if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
-                                    $productModel = new Product();
-                                    $product = $productModel->getById($_GET['product_id']);
-                                    
-                                    if ($product && $product['is_active'] && $product['stock_quantity'] > 0) {
-                                        // Тут буде код для додавання товару в замовлення, але він буде виконуватися через JavaScript
-                                    }
-                                }
-                                ?>
-                            </div>
-                            
-                            <?php 
-                            // Якщо немає товарів в контейнері, показуємо повідомлення
-                            if (empty($_POST['product_id']) && !isset($_GET['product_id'])): 
-                            ?>
-                                <div class="text-center py-4" id="noItemsMessage">
-                                    <p class="text-muted">Додайте товари до вашого замовлення</p>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    
-                    <!-- Рекомендовані товари -->
-                    <?php 
-                    // Відображення рекомендованих товарів
-                    $productModel = new Product();
-                    $recommendedProducts = $productModel->getFeatured(4);
-                    
-                    if (!empty($recommendedProducts)):
-                    ?>
-                    <div class="card order-form-card mt-4">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">Рекомендовані товари</h5>
-                        </div>
-                        <div class="card-body recommended-products">
-                            <div class="row">
-                                <?php foreach ($recommendedProducts as $product): ?>
-                                    <?php if ($product['is_active'] && $product['stock_quantity'] > 0): ?>
-                                        <div class="col-md-6">
-                                            <div class="product-card">
-                                                <div class="row g-0">
-                                                    <div class="col-md-4">
-                                                        <img src="<?= $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg') ?>" 
-                                                            class="img-fluid rounded-start" alt="<?= $product['name'] ?>" 
-                                                            style="height: 100%; object-fit: cover;">
-                                                    </div>
-                                                    <div class="col-md-8">
-                                                        <div class="card-body">
-                                                            <h5 class="card-title"><?= $product['name'] ?></h5>
-                                                            <p class="card-text">
-                                                                <span class="fw-bold text-primary"><?= number_format($product['price'], 2) ?> грн</span>
-                                                            </p>
-                                                            <p class="card-text">
-                                                                <small class="text-muted">В наявності: <?= $product['stock_quantity'] ?> шт.</small>
-                                                            </p>
-                                                            <button type="button" class="btn btn-sm btn-outline-success add-product-btn"
-                                                                    data-product-id="<?= $product['id'] ?>"
-                                                                    data-product-name="<?= $product['name'] ?>"
-                                                                    data-product-price="<?= $product['price'] ?>"
-                                                                    data-product-stock="<?= $product['stock_quantity'] ?>"
-                                                                    data-product-image="<?= $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg') ?>">
-                                                                <i class="fas fa-plus me-1"></i> Додати до замовлення
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
+                <div class="alert alert-info text-center" id="emptyCartMessage" <?= $hasCartItems ? 'style="display:none"' : '' ?>>
+                    <i class="fas fa-shopping-basket me-2"></i> Додайте товари до кошика
                 </div>
             </div>
-            
-            <div class="row">
-                <div class="col-md-12 mb-4">
-                    <div class="d-flex justify-content-between">
-                        <a href="<?= base_url('products') ?>" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left me-1"></i> Повернутися до каталогу
-                        </a>
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-check me-1"></i> Оформити замовлення
-                        </button>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Загальна сума: <span id="totalPrice" class="text-primary">0.00 грн</span></h4>
+                    <a href="<?= base_url('products') ?>" class="btn btn-outline-secondary">
+                        <i class="fas fa-shopping-basket me-1"></i> Продовжити покупки
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <?php if (!empty($recommendedProducts)): ?>
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Рекомендовані товари</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <?php foreach ($recommendedProducts as $recProduct): ?>
+                        <?php if ($recProduct['is_active'] && $recProduct['stock_quantity'] > 0): ?>
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <img src="<?= $recProduct['image'] ? upload_url($recProduct['image']) : asset_url('images/no-image.jpg') ?>" 
+                                         class="card-img-top" alt="<?= $recProduct['name'] ?>">
+                                    <div class="card-body">
+                                        <h5 class="card-title"><?= $recProduct['name'] ?></h5>
+                                        <p class="card-text">
+                                            <span class="fw-bold"><?= number_format($recProduct['price'], 2) ?> грн</span>
+                                        </p>
+                                        <button class="btn btn-sm btn-success add-product-btn w-100"
+                                                data-product-id="<?= $recProduct['id'] ?>">
+                                            <i class="fas fa-cart-plus me-1"></i> Додати
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <div class="col-md-4">
+        <form id="orderForm" action="<?= base_url('orders/store') ?>" method="POST">
+            <?= csrf_field() ?>
+
+            <div class="card order-form-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shipping-fast me-2"></i> Деталі замовлення
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="shipping_address" class="form-label">Адреса доставки</label>
+                        <textarea class="form-control" id="shipping_address" 
+                                  name="shipping_address" 
+                                  rows="3" 
+                                  placeholder="Введіть повну адресу доставки" 
+                                  required></textarea>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label">Спосіб оплати</label>
+                        <select class="form-select" id="payment_method" name="payment_method" required>
+                            <option value="">Оберіть спосіб оплати</option>
+                            <option value="cash_on_delivery">Оплата при отриманні</option>
+                            <option value="bank_transfer">Банківський переказ</option>
+                            <option value="credit_card">Онлайн-оплата</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Додаткові коментарі</label>
+                        <textarea class="form-control" id="notes" 
+                                  name="notes" 
+                                  rows="3" 
+                                  placeholder="Додаткова інформація або побажання"></textarea>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-success w-100" id="submitOrderBtn" disabled>
+                        <i class="fas fa-check me-2"></i> Оформити замовлення
+                    </button>
                 </div>
             </div>
         </form>

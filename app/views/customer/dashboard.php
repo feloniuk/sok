@@ -274,11 +274,6 @@ $extra_css = '
                     <div class="col-md-8"><?= $_SESSION['user_phone'] ?? 'Не вказано' ?></div>
                 </div>
                 
-                <div class="row mb-2">
-                    <div class="col-md-4 text-muted">Дата реєстрації:</div>
-                    <div class="col-md-8"><?= $_SESSION['user_created_at'] ? date('d.m.Y', strtotime($_SESSION['user_created_at'])) : 'Не вказано' ?></div>
-                </div>
-                
                 <div class="d-grid gap-2 mt-3">
                     <a href="<?= base_url('profile/edit') ?>" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-user-edit me-1"></i> Редагувати профіль

@@ -48,6 +48,35 @@ class ProductController extends BaseController {
     }
     
     /**
+     * Отримання даних про продукт у форматі JSON
+     * 
+     * @param int $id
+     * @return void
+     */
+    public function getProductJson($id = null) {
+        // Отримання ID з GET-параметра, якщо не передано як аргумент
+        if ($id === null) {
+            $id = $this->input('id');
+        }
+        
+        if (!$id || !is_numeric($id)) {
+            $this->json(['error' => 'Invalid product ID'], 400);
+            return;
+        }
+        
+        // Отримання продукту
+        $product = $this->productModel->getById($id);
+        
+        if (!$product || !$product['is_active'] || $product['stock_quantity'] <= 0) {
+            $this->json(['error' => 'Product not found or unavailable'], 404);
+            return;
+        }
+        
+        // Повернення даних про продукт
+        $this->json($product);
+    }
+
+    /**
      * Відображення деталей продукту
      *
      * @param int $id
