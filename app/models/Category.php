@@ -22,6 +22,7 @@ class Category extends BaseModel {
         return $this->db->getAll($sql);
     }
     
+    
     /**
      * Отримання категорії з продуктами
      *

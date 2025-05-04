@@ -1,11 +1,12 @@
 <?php
-// app/controllers/ReportController.php - Контроллер для генерации отчетов
+// app/controllers/ReportController.php - Обновленный контроллер для отчетов
 
 class ReportController extends BaseController {
     private $userModel;
     private $productModel;
     private $orderModel;
     private $categoryModel;
+    private $salesAnalyticsModel;
     
     public function __construct() {
         parent::__construct();
@@ -13,6 +14,7 @@ class ReportController extends BaseController {
         $this->productModel = new Product();
         $this->orderModel = new Order();
         $this->categoryModel = new Category();
+        $this->salesAnalyticsModel = new SalesAnalytics();
     }
     
     /**
@@ -26,7 +28,56 @@ class ReportController extends BaseController {
             return;
         }
         
+        // Получение ежемесячной статистики для быстрых показателей
+        $monthlyStats = $this->getMonthlyStats();
+        
+        // Получение последних 5 сохраненных отчетов (в реальном проекте)
+        // В данной реализации без таблицы отчетов создадим заглушку
+        $recentReports = [];
+        
+        // Передача данных в представление
+        $this->data['monthlyStats'] = $monthlyStats;
+        $this->data['recentReports'] = $recentReports;
+        
         $this->view('reports/index');
+    }
+    
+    /**
+     * Получение ежемесячной статистики
+     */
+    private function getMonthlyStats() {
+        $startDate = date('Y-m-d', strtotime('-1 month'));
+        $endDate = date('Y-m-d');
+        
+        // Получение суммы продаж за месяц
+        $salesSql = "SELECT SUM(revenue) as total_sales, SUM(profit) as total_profit 
+                     FROM sales_analytics 
+                     WHERE date BETWEEN ? AND ?";
+        $salesData = $this->db->getOne($salesSql, [$startDate, $endDate]);
+        
+        // Получение количества заказов за месяц
+        $ordersSql = "SELECT COUNT(*) as order_count 
+                      FROM orders 
+                      WHERE created_at BETWEEN ? AND ?";
+        $ordersData = $this->db->getValue($ordersSql, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        
+        // Получение количества новых клиентов за месяц
+        $customersSql = "SELECT COUNT(*) as customer_count 
+                         FROM users 
+                         WHERE role = 'customer' AND created_at BETWEEN ? AND ?";
+        $customersData = $this->db->getValue($customersSql, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        
+        // Расчет маржи прибыли
+        $revenue = $salesData['total_sales'] ?? 0;
+        $profit = $salesData['total_profit'] ?? 0;
+        $profitMargin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
+        
+        return [
+            'sales' => $salesData['total_sales'] ?? 0,
+            'profit' => $profitMargin,
+            'orders' => $ordersData ?? 0,
+            'customers' => $customersData ?? 0
+        ];
     }
     
     /**
@@ -97,35 +148,6 @@ class ReportController extends BaseController {
     }
     
     /**
-     * Отчет по клиентам
-     */
-    public function customers() {
-        // Проверка прав доступа
-        if (!has_role(['admin', 'sales_manager'])) {
-            $this->setFlash('error', 'У вас нет доступа к этой странице.');
-            $this->redirect('dashboard');
-            return;
-        }
-        
-        // Получение параметров фильтрации
-        $filter = [
-            'period' => $this->input('period', 'month'),
-            'start_date' => $this->input('start_date', date('Y-m-d', strtotime('-1 month'))),
-            'end_date' => $this->input('end_date', date('Y-m-d')),
-            'sort' => $this->input('sort', 'total_desc')
-        ];
-        
-        // Получение данных для отчета
-        $customersData = $this->getCustomersData($filter);
-        
-        // Передача данных в представление
-        $this->data['customersData'] = $customersData;
-        $this->data['filter'] = $filter;
-        
-        $this->view('reports/customers');
-    }
-    
-    /**
      * Страница генерации произвольного отчета
      */
     public function generate() {
@@ -179,10 +201,15 @@ class ReportController extends BaseController {
                     $reportTitle = 'Неизвестный тип отчета';
             }
             
+            // Получение категорий для фильтра и формирования заголовка
+            $categories = $this->categoryModel->getAll();
+            
             // Передача данных в представление
             $this->data['reportData'] = $reportData;
             $this->data['reportTitle'] = $reportTitle;
             $this->data['reportType'] = $reportType;
+            $this->data['filter'] = $filter;
+            $this->data['categories'] = $categories;
             
             // Выбор формата вывода
             if ($format === 'pdf') {
@@ -312,6 +339,7 @@ class ReportController extends BaseController {
      * @return array
      */
     private function getProductsData($filter) {
+        // Данный метод уже содержит реальные SQL-запросы, оставляем его как есть
         // Формирование условий для SQL-запроса
         $conditions = [];
         $params = [];
@@ -675,12 +703,10 @@ class ReportController extends BaseController {
      * @param array $filter
      */
     private function generatePdf($reportType, $reportTitle, $reportData, $filter) {
-        // В реальном приложении здесь был бы код для генерации PDF-документа
-        // Для этого можно использовать библиотеки, такие как TCPDF, FPDF или mPDF
-        
-        // Временное решение - возвращаем сообщение о том, что эта функция не реализована
-        $this->setFlash('warning', 'Генерация PDF-отчетов временно недоступна.');
-        $this->redirect('reports/generate');
+        // В реальном проекте здесь был бы код для генерации PDF-документа
+        // Для простоты реализации просто отображаем HTML-версию с сообщением
+        $this->setFlash('warning', 'Генерация PDF-отчетов временно недоступна. Отображена HTML-версия отчета.');
+        $this->view('reports/generated');
     }
     
     /**
@@ -692,12 +718,10 @@ class ReportController extends BaseController {
      * @param array $filter
      */
     private function generateExcel($reportType, $reportTitle, $reportData, $filter) {
-        // В реальном приложении здесь был бы код для генерации Excel-документа
-        // Для этого можно использовать библиотеки, такие как PhpSpreadsheet
-        
-        // Временное решение - возвращаем сообщение о том, что эта функция не реализована
-        $this->setFlash('warning', 'Генерация Excel-отчетов временно недоступна.');
-        $this->redirect('reports/generate');
+        // В реальном проекте здесь был бы код для генерации Excel-документа
+        // Для простоты реализации просто отображаем HTML-версию с сообщением
+        $this->setFlash('warning', 'Генерация Excel-отчетов временно недоступна. Отображена HTML-версия отчета.');
+        $this->view('reports/generated');
     }
     
     /**
