@@ -12,6 +12,60 @@ class WarehouseController extends BaseController {
         $this->productModel = new Product();
         $this->inventoryMovementModel = new InventoryMovement();
     }
+
+    /**
+ * Експорт звіту про рух товарів
+ */
+public function exportMovements() {
+    $filters = [
+        'product_id' => $this->input('product_id'),
+        'warehouse_id' => $this->input('warehouse_id'),
+        'movement_type' => $this->input('movement_type'),
+        'date_from' => $this->input('date_from'),
+        'date_to' => $this->input('date_to'),
+        'keyword' => $this->input('keyword')
+    ];
+    
+    $format = $this->input('format', 'csv');
+    
+    $movementsData = $this->inventoryMovementModel->getWithDetails($filters);
+    
+    // Логіка експорту в різних форматах
+    switch ($format) {
+        case 'csv':
+            $this->exportCsv($movementsData['items']);
+            break;
+        case 'excel':
+            $this->exportExcel($movementsData['items']);
+            break;
+        case 'pdf':
+            $this->exportPdf($movementsData['items']);
+            break;
+    }
+}
+
+private function exportCsv($data) {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="movements_report.csv"');
+    
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['ID', 'Дата', 'Продукт', 'Склад', 'Тип руху', 'Кількість', 'Примітки']);
+    
+    foreach ($data as $row) {
+        fputcsv($output, [
+            $row['id'], 
+            $row['created_at'], 
+            $row['product_name'], 
+            $row['warehouse_name'], 
+            $row['movement_type'], 
+            $row['quantity'], 
+            $row['notes']
+        ]);
+    }
+    
+    fclose($output);
+    exit;
+}
     
     /**
      * Відображення панелі керування складом

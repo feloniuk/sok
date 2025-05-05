@@ -120,6 +120,7 @@ $router->get('orders/print/{id}', 'OrderController', 'print', [new AuthMiddlewar
 $router->get('orders/products_json', 'OrderController', 'getProductsJson', [new AuthMiddleware()]);
 
 // Склад
+$router->get('warehouse/export_movements', 'WarehouseController', 'exportMovements', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->get('warehouse', 'WarehouseController', 'index', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->get('warehouse/inventory', 'WarehouseController', 'inventory', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->get('warehouse/movements', 'WarehouseController', 'movements', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
