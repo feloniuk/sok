@@ -110,7 +110,7 @@ $(document).ready(function() {
     
     // Автоматически выбираем продукт, если он указан в URL
     <?php if (isset($product) && $product): ?>
-        $("#product_id").val("<?= $product['id'] ?>").trigger("change");
+        $("#product_id").val("<?= $product[\'id\'] ?>").trigger("change");
     <?php endif; ?>
 });
 </script>';

@@ -1,11 +1,11 @@
 <?php
-// app/views/reports/sales.php - Сторінка звіту продажів
-$title = 'Звіт по продажах';
+// app/views/reports/sales.php
+$title = 'Звіт по продажам';
 
-// Підключення додаткових CSS
+// Додаткові CSS стилі
 $extra_css = '
 <style>
-    .report-card {
+    .filter-card {
         border-radius: 0.5rem;
         overflow: hidden;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -15,8 +15,9 @@ $extra_css = '
     
     .stat-card {
         border-radius: 0.5rem;
-        border: none;
+        overflow: hidden;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: none;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     
@@ -30,13 +31,16 @@ $extra_css = '
         height: 300px;
         margin-bottom: 20px;
     }
-</style>';
+</style>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+';
 
-// Підключення додаткових JS
+// Додаткові JS скрипти
 $extra_js = '
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>
-$(document).ready(function() {
+document.addEventListener("DOMContentLoaded", function() {
     // Ініціалізація вибору дати
     $(".datepicker").datepicker({
         format: "yyyy-mm-dd",
@@ -47,216 +51,207 @@ $(document).ready(function() {
         todayHighlight: true
     });
     
-    // Графік продажів по днях
-    const dailySalesCtx = document.getElementById("dailySalesChart").getContext("2d");
-    new Chart(dailySalesCtx, {
-        type: "line",
-        data: {
-            labels: ' . json_encode(array_column($salesData['daily'] ?? [], 'date')) . ',
-            datasets: [
-                {
+    // Ініціалізація графіків
+    if(document.getElementById("salesChart")) {
+        const salesCtx = document.getElementById("salesChart").getContext("2d");
+        const salesChart = new Chart(salesCtx, {
+            type: "line",
+            data: {
+                labels: ' . json_encode(array_column($salesData['daily'] ?? [], 'date')) . ',
+                datasets: [{
                     label: "Виручка",
                     data: ' . json_encode(array_column($salesData['daily'] ?? [], 'revenue')) . ',
                     borderColor: "#4e73df",
-                    backgroundColor: "rgba(78, 115, 223, 0.05)",
+                    backgroundColor: "rgba(78, 115, 223, 0.1)",
                     tension: 0.3,
                     fill: true
-                },
-                {
+                }, {
                     label: "Прибуток",
                     data: ' . json_encode(array_column($salesData['daily'] ?? [], 'profit')) . ',
                     borderColor: "#1cc88a",
-                    backgroundColor: "rgba(28, 200, 138, 0.05)",
+                    backgroundColor: "rgba(28, 200, 138, 0.1)",
                     tension: 0.3,
                     fill: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: "Динаміка продажів за період"
-                }
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: "Сума (грн)"
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "Сума (грн)"
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    }
     
-    // Графік продажів за категоріями
-    const categorySalesCtx = document.getElementById("categorySalesChart").getContext("2d");
-    new Chart(categorySalesCtx, {
-        type: "pie",
-        data: {
-            labels: ' . json_encode(array_column($salesData['categories'] ?? [], 'category_name')) . ',
-            datasets: [{
-                data: ' . json_encode(array_column($salesData['categories'] ?? [], 'revenue')) . ',
-                backgroundColor: [
-                    "#4e73df", "#1cc88a", "#36b9cc", "#f6c23e", "#e74a3b", 
-                    "#5a5c69", "#6610f2", "#6f42c1", "#e83e8c", "#fd7e14"
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: "Продажі за категоріями"
-                },
-                legend: {
-                    position: "right"
-                }
-            }
-        }
-    });
-    
-    // Графік топових продуктів
-    const topProductsCtx = document.getElementById("topProductsChart").getContext("2d");
-    new Chart(topProductsCtx, {
-        type: "bar",
-        data: {
-            labels: ' . json_encode(array_column($salesData['products'] ?? [], 'product_name')) . ',
-            datasets: [{
-                label: "Кількість проданих одиниць",
-                data: ' . json_encode(array_column($salesData['products'] ?? [], 'quantity')) . ',
-                backgroundColor: "#4e73df"
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: "y",
-            plugins: {
-                title: {
-                    display: true,
-                    text: "Топ продуктів за кількістю продажів"
-                }
+    if(document.getElementById("categoryChart")) {
+        const categoryCtx = document.getElementById("categoryChart").getContext("2d");
+        new Chart(categoryCtx, {
+            type: "doughnut",
+            data: {
+                labels: ' . json_encode(array_column($salesData['categories'] ?? [], 'category_name')) . ',
+                datasets: [{
+                    data: ' . json_encode(array_column($salesData['categories'] ?? [], 'revenue')) . ',
+                    backgroundColor: [
+                        "#4e73df", "#1cc88a", "#36b9cc", "#f6c23e", "#e74a3b", 
+                        "#5a5c69", "#6610f2", "#6f42c1", "#e83e8c", "#fd7e14"
+                    ]
+                }]
             },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: "Кількість одиниць"
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "right"
                     }
                 }
             }
-        }
-    });
+        });
+    }
     
-    // Зміна періоду звіту
-    $(".period-btn").on("click", function(e) {
+    if(document.getElementById("productChart")) {
+        const productCtx = document.getElementById("productChart").getContext("2d");
+        new Chart(productCtx, {
+            type: "bar",
+            data: {
+                labels: ' . json_encode(array_column($salesData['products'] ?? [], 'product_name')) . ',
+                datasets: [{
+                    label: "Кількість продажів",
+                    data: ' . json_encode(array_column($salesData['products'] ?? [], 'quantity')) . ',
+                    backgroundColor: "#4e73df"
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "Кількість"
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Зміна періоду
+    $(".period-selector").on("click", function(e) {
         e.preventDefault();
-        
         const period = $(this).data("period");
-        let startDate = "";
-        let endDate = "";
         
-        // Визначення дат на основі обраного періоду
+        // Встановлення відповідних дат
+        let startDate, endDate;
         const today = new Date();
+        endDate = today.toISOString().split("T")[0]; // Сьогодні
         
         switch (period) {
             case "week":
                 const lastWeek = new Date();
-                lastWeek.setDate(lastWeek.getDate() - 7);
-                startDate = formatDate(lastWeek);
-                endDate = formatDate(today);
+                lastWeek.setDate(today.getDate() - 7);
+                startDate = lastWeek.toISOString().split("T")[0];
                 break;
-                
             case "month":
                 const lastMonth = new Date();
-                lastMonth.setMonth(lastMonth.getMonth() - 1);
-                startDate = formatDate(lastMonth);
-                endDate = formatDate(today);
+                lastMonth.setMonth(today.getMonth() - 1);
+                startDate = lastMonth.toISOString().split("T")[0];
                 break;
-                
             case "quarter":
                 const lastQuarter = new Date();
-                lastQuarter.setMonth(lastQuarter.getMonth() - 3);
-                startDate = formatDate(lastQuarter);
-                endDate = formatDate(today);
+                lastQuarter.setMonth(today.getMonth() - 3);
+                startDate = lastQuarter.toISOString().split("T")[0];
                 break;
-                
             case "year":
                 const lastYear = new Date();
-                lastYear.setFullYear(lastYear.getFullYear() - 1);
-                startDate = formatDate(lastYear);
-                endDate = formatDate(today);
+                lastYear.setFullYear(today.getFullYear() - 1);
+                startDate = lastYear.toISOString().split("T")[0];
                 break;
         }
         
-        // Оновлення полів форми
+        // Оновлення полів дати
         $("#start_date").val(startDate);
         $("#end_date").val(endDate);
         
-        // Відправка форми
+        // Автоматичне відправлення форми
         $("#filterForm").submit();
     });
     
-    // Форматування дати у формат YYYY-MM-DD
-    function formatDate(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-    }
+    // Друк звіту
+    $("#printReport").on("click", function() {
+        window.print();
+    });
 });
 </script>';
 ?>
 
 <div class="row mb-4">
     <div class="col-md-8">
-        <h1 class="h2 mb-0"><?= $title ?></h1>
-        <p class="text-muted">
-            Звіт за період: <?= !empty($filter['start_date']) ? date('d.m.Y', strtotime($filter['start_date'])) : 'початок' ?> - 
-            <?= !empty($filter['end_date']) ? date('d.m.Y', strtotime($filter['end_date'])) : 'кінець' ?>
-        </p>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="<?= base_url() ?>">Головна</a></li>
+                <li class="breadcrumb-item"><a href="<?= base_url('reports') ?>">Звіти</a></li>
+                <li class="breadcrumb-item active"><?= $title ?></li>
+            </ol>
+        </nav>
     </div>
     <div class="col-md-4 text-end">
         <div class="btn-group">
-            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-file-export me-1"></i> Експорт
+            <button id="printReport" class="btn btn-outline-primary">
+                <i class="fas fa-print me-1"></i> Друк
             </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="<?= base_url('reports/export_sales?format=csv&' . http_build_query($filter)) ?>">CSV</a></li>
-                <li><a class="dropdown-item" href="<?= base_url('reports/export_sales?format=excel&' . http_build_query($filter)) ?>">Excel</a></li>
-                <li><a class="dropdown-item" href="<?= base_url('reports/export_sales?format=pdf&' . http_build_query($filter)) ?>">PDF</a></li>
-            </ul>
+            <a href="<?= base_url('reports/generate?report_type=sales') ?>" class="btn btn-outline-secondary">
+                <i class="fas fa-download me-1"></i> Експорт
+            </a>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card report-card">
+<div class="row">
+    <!-- Фільтри -->
+    <div class="col-md-3 mb-4">
+        <div class="card filter-card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">Фільтри</h5>
             </div>
             <div class="card-body">
-                <form id="filterForm" action="<?= base_url('reports/sales') ?>" method="GET" class="row g-3">
-                    <div class="col-md-3">
-                        <label for="start_date" class="form-label">Початкова дата</label>
-                        <input type="text" class="form-control datepicker" id="start_date" name="start_date" value="<?= $filter['start_date'] ?? '' ?>" placeholder="YYYY-MM-DD">
+                <form id="filterForm" action="<?= base_url('reports/sales') ?>" method="GET">
+                    <!-- Період (швидкий вибір) -->
+                    <div class="mb-3">
+                        <label class="form-label">Швидкий вибір періоду</label>
+                        <div class="btn-group w-100">
+                            <button type="button" class="btn btn-outline-primary period-selector" data-period="week">Тиждень</button>
+                            <button type="button" class="btn btn-outline-primary period-selector" data-period="month">Місяць</button>
+                            <button type="button" class="btn btn-outline-primary period-selector" data-period="quarter">Квартал</button>
+                            <button type="button" class="btn btn-outline-primary period-selector" data-period="year">Рік</button>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label for="end_date" class="form-label">Кінцева дата</label>
-                        <input type="text" class="form-control datepicker" id="end_date" name="end_date" value="<?= $filter['end_date'] ?? '' ?>" placeholder="YYYY-MM-DD">
+                    
+                    <!-- Період (ручний вибір) -->
+                    <div class="mb-3">
+                        <label class="form-label">Період</label>
+                        <div class="row g-2">
+                            <div class="col">
+                                <input type="text" class="form-control datepicker" id="start_date" name="start_date" placeholder="З" value="<?= $filter['start_date'] ?? date('Y-m-d', strtotime('-1 month')) ?>">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control datepicker" id="end_date" name="end_date" placeholder="По" value="<?= $filter['end_date'] ?? date('Y-m-d') ?>">
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-3">
+                    
+                    <!-- Категорія -->
+                    <div class="mb-3">
                         <label for="category_id" class="form-label">Категорія</label>
-                        <select class="form-select" id="category_id" name="category_id">
+                        <select name="category_id" id="category_id" class="form-select">
                             <option value="">Всі категорії</option>
                             <?php foreach ($categories ?? [] as $category): ?>
                                 <option value="<?= $category['id'] ?>" <?= isset($filter['category_id']) && $filter['category_id'] == $category['id'] ? 'selected' : '' ?>>
@@ -265,220 +260,257 @@ $(document).ready(function() {
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label for="period" class="form-label">Період</label>
-                        <div class="input-group">
-                            <select class="form-select" id="period" name="period">
-                                <option value="custom" <?= (!isset($filter['period']) || $filter['period'] == 'custom') ? 'selected' : '' ?>>Вибір дат</option>
-                                <option value="week" <?= isset($filter['period']) && $filter['period'] == 'week' ? 'selected' : '' ?>>Тиждень</option>
-                                <option value="month" <?= isset($filter['period']) && $filter['period'] == 'month' ? 'selected' : '' ?>>Місяць</option>
-                                <option value="quarter" <?= isset($filter['period']) && $filter['period'] == 'quarter' ? 'selected' : '' ?>>Квартал</option>
-                                <option value="year" <?= isset($filter['period']) && $filter['period'] == 'year' ? 'selected' : '' ?>>Рік</option>
-                            </select>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-filter me-1"></i> Застосувати
-                            </button>
-                        </div>
+                    
+                    <!-- Кнопки -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter me-1"></i> Застосувати
+                        </button>
+                        <a href="<?= base_url('reports/sales') ?>" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Скинути
+                        </a>
                     </div>
                 </form>
-                
-                <div class="mt-3">
-                    <div class="btn-group btn-group-sm">
-                        <a href="#" class="btn btn-outline-secondary period-btn" data-period="week">Тиждень</a>
-                        <a href="#" class="btn btn-outline-secondary period-btn" data-period="month">Місяць</a>
-                        <a href="#" class="btn btn-outline-secondary period-btn" data-period="quarter">Квартал</a>
-                        <a href="#" class="btn btn-outline-secondary period-btn" data-period="year">Рік</a>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card stat-card border-left-primary h-100 py-2">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                            Загальна виручка
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= number_format($salesData['totals']['total_revenue'] ?? 0, 2) ?> грн
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
-                    </div>
+    
+    <!-- Результати -->
+    <div class="col-md-9">
+        <!-- Заголовок звіту -->
+        <div class="alert alert-info">
+            <div class="d-flex">
+                <div class="me-3">
+                    <i class="fas fa-info-circle fa-2x"></i>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stat-card border-left-success h-100 py-2">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                            Загальний прибуток
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= number_format($salesData['totals']['total_profit'] ?? 0, 2) ?> грн
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-chart-line fa-2x text-gray-300"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stat-card border-left-info h-100 py-2">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                            Кількість проданих товарів
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= number_format($salesData['totals']['total_quantity'] ?? 0) ?> од.
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-box fa-2x text-gray-300"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stat-card border-left-warning h-100 py-2">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                            Маржа прибутку
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?php
-                            $profitMargin = 0;
-                            if (isset($salesData['totals']['total_revenue']) && $salesData['totals']['total_revenue'] > 0) {
-                                $profitMargin = ($salesData['totals']['total_profit'] / $salesData['totals']['total_revenue']) * 100;
+                <div>
+                    <h5 class="alert-heading">Інформація про звіт</h5>
+                    <p class="mb-0">
+                        Період: <?= date('d.m.Y', strtotime($filter['start_date'] ?? date('Y-m-d', strtotime('-1 month')))) ?> - 
+                        <?= date('d.m.Y', strtotime($filter['end_date'] ?? date('Y-m-d'))) ?>
+                        <?php if (isset($filter['category_id']) && !empty($filter['category_id'])): ?>
+                            <?php 
+                            $categoryName = 'Всі категорії';
+                            foreach ($categories as $category) {
+                                if ($category['id'] == $filter['category_id']) {
+                                    $categoryName = $category['name'];
+                                    break;
+                                }
                             }
-                            echo number_format($profitMargin, 2) . '%';
                             ?>
+                            | Категорія: <?= $categoryName ?>
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Загальні показники -->
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Загальна кількість
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    <?= number_format($salesData['totals']['total_quantity'] ?? 0) ?> шт.
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Загальна виручка
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    <?= number_format($salesData['totals']['total_revenue'] ?? 0, 2) ?> грн.
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                    Загальний прибуток
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    <?= number_format($salesData['totals']['total_profit'] ?? 0, 2) ?> грн.
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                    Маржа прибутку
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    <?php 
+                                    $revenue = $salesData['totals']['total_revenue'] ?? 0;
+                                    $profit = $salesData['totals']['total_profit'] ?? 0;
+                                    $margin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
+                                    echo $margin . '%';
+                                    ?>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-8">
-        <div class="card report-card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Динаміка продажів</h5>
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="dailySalesChart"></canvas>
+        
+        <!-- Графіки -->
+        <div class="row">
+            <div class="col-md-12 mb-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="m-0 font-weight-bold text-primary">Динаміка продажів</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card report-card">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">Розподіл за категоріями</h5>
+        
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="m-0 font-weight-bold text-primary">Продажі за категоріями</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="categorySalesChart"></canvas>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="m-0 font-weight-bold text-primary">Топ продуктів за кількістю продажів</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="productChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card report-card">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Топ продуктів за продажами</h5>
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="topProductsChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-12">
-        <div class="card report-card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Деталі продажів за період</h5>
+        
+        <!-- Таблиця з деталями -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="m-0 font-weight-bold text-primary">Деталі продажів за категоріями</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover">
                         <thead>
                             <tr>
-                                <th>Дата</th>
-                                <th>Кількість проданих одиниць</th>
-                                <th>Виручка (грн)</th>
-                                <th>Собівартість (грн)</th>
-                                <th>Прибуток (грн)</th>
-                                <th>Маржа (%)</th>
+                                <th>Категорія</th>
+                                <th class="text-end">Кількість</th>
+                                <th class="text-end">Виручка</th>
+                                <th class="text-end">Прибуток</th>
+                                <th class="text-end">Маржа</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($salesData['daily'] ?? [] as $day): ?>
+                            <?php foreach ($salesData['categories'] ?? [] as $category): ?>
                                 <tr>
-                                    <td><?= date('d.m.Y', strtotime($day['date'])) ?></td>
-                                    <td><?= number_format($day['quantity']) ?></td>
-                                    <td><?= number_format($day['revenue'], 2) ?></td>
-                                    <td><?= number_format($day['revenue'] - $day['profit'], 2) ?></td>
-                                    <td><?= number_format($day['profit'], 2) ?></td>
-                                    <td>
-                                        <?php
-                                        $margin = 0;
-                                        if ($day['revenue'] > 0) {
-                                            $margin = ($day['profit'] / $day['revenue']) * 100;
-                                        }
-                                        echo number_format($margin, 2) . '%';
+                                    <td><?= $category['category_name'] ?></td>
+                                    <td class="text-end"><?= number_format($category['quantity']) ?> шт.</td>
+                                    <td class="text-end"><?= number_format($category['revenue'], 2) ?> грн.</td>
+                                    <td class="text-end"><?= number_format($category['profit'], 2) ?> грн.</td>
+                                    <td class="text-end">
+                                        <?php 
+                                        $categoryRevenue = $category['revenue'];
+                                        $categoryProfit = $category['profit'];
+                                        $categoryMargin = $categoryRevenue > 0 ? round(($categoryProfit / $categoryRevenue) * 100, 2) : 0;
+                                        echo $categoryMargin . '%';
                                         ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
-                        <tfoot>
-                            <tr class="table-primary">
-                                <th>Всього:</th>
-                                <th><?= number_format($salesData['totals']['total_quantity'] ?? 0) ?></th>
-                                <th><?= number_format($salesData['totals']['total_revenue'] ?? 0, 2) ?></th>
-                                <th><?= number_format(($salesData['totals']['total_revenue'] ?? 0) - ($salesData['totals']['total_profit'] ?? 0), 2) ?></th>
-                                <th><?= number_format($salesData['totals']['total_profit'] ?? 0, 2) ?></th>
-                                <th>
-                                    <?php
-                                    $totalMargin = 0;
-                                    if (isset($salesData['totals']['total_revenue']) && $salesData['totals']['total_revenue'] > 0) {
-                                        $totalMargin = ($salesData['totals']['total_profit'] / $salesData['totals']['total_revenue']) * 100;
-                                    }
-                                    echo number_format($totalMargin, 2) . '%';
-                                    ?>
-                                </th>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="m-0 font-weight-bold text-primary">Деталі продажів за продуктами</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Продукт</th>
+                                <th class="text-end">Кількість</th>
+                                <th class="text-end">Виручка</th>
+                                <th class="text-end">Прибуток</th>
+                                <th class="text-end">Маржа</th>
                             </tr>
-                        </tfoot>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($salesData['products'] ?? [] as $product): ?>
+                                <tr>
+                                    <td><?= $product['product_name'] ?></td>
+                                    <td class="text-end"><?= number_format($product['quantity']) ?> шт.</td>
+                                    <td class="text-end"><?= number_format($product['revenue'], 2) ?> грн.</td>
+                                    <td class="text-end"><?= number_format($product['profit'], 2) ?> грн.</td>
+                                    <td class="text-end">
+                                        <?php 
+                                        $productRevenue = $product['revenue'];
+                                        $productProfit = $product['profit'];
+                                        $productMargin = $productRevenue > 0 ? round(($productProfit / $productRevenue) * 100, 2) : 0;
+                                        echo $productMargin . '%';
+                                        ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
                     </table>
                 </div>
             </div>
