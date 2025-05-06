@@ -24,26 +24,18 @@ $extra_css = '
         object-fit: cover;
         border-radius: 0.25rem;
     }
-</style>';
+</style>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+';
 
 // Підключення додаткових JS
 $extra_js = '
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script>
     $(document).ready(function() {
         // Ініціалізація автозаповнення для вибору продукту
         $("#product_search").autocomplete({
-            source: function(request, response) {
-                $.ajax({
-                    url: "' . base_url("products/search") . '",
-                    dataType: "json",
-                    data: {
-                        term: request.term
-                    },
-                    success: function(data) {
-                        response(data);
-                    }
-                });
-            },
+            source: "' . base_url("products/search") . '",
             minLength: 2,
             select: function(event, ui) {
                 $("#product_id").val(ui.item.id);
