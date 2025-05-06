@@ -59,14 +59,28 @@ $extra_js = $extra_js ?? '';
                                 <i class="fas fa-tachometer-alt"></i> Панель керування
                             </a>
                         </li>
-                        <?php if (has_role(['admin', 'sales_manager', 'warehouse_manager'])): ?>
+                        <?php if (has_role('warehouse_manager')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?= base_url('warehouse/inventory') ?>">
+                                <i class="fas fa-boxes"></i>
+                                <span>Інвентаризація</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?= base_url('warehouse/movements') ?>">
+                                <i class="fas fa-exchange-alt"></i>
+                                <span>Рух товарів</span>
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if (has_role(['admin', 'sales_manager'])): ?>
                             <li class="nav-item">
                                 <a class="nav-link <?= is_current_url('orders') ? 'active' : '' ?>" href="<?= base_url('orders') ?>">
                                     <i class="fas fa-shopping-cart"></i> Замовлення
                                 </a>
                             </li>
                         <?php endif; ?>
-                        <?php if (has_role(['admin', 'warehouse_manager'])): ?>
+                        <?php if (has_role(['admin'])): ?>
                             <li class="nav-item">
                                 <a class="nav-link <?= is_current_url('warehouse') ? 'active' : '' ?>" href="<?= base_url('warehouse') ?>">
                                     <i class="fas fa-warehouse"></i> Склад

@@ -215,3 +215,7 @@ function buildFilterUrl($newParams = []) {
         </div>
     </div>
 </div>
+
+<script>
+    const baseUrl = "<?= base_url() ?>";
+</script>

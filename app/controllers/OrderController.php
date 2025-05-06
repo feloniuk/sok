@@ -72,6 +72,127 @@ class OrderController extends BaseController {
             $this->view('customer/orders/index');
         }
     }
+
+    /**
+     * Обробка замовлення (для менеджера складу)
+     *
+     * @param int $id
+     */
+    public function process($id) {
+        // Перевірка прав доступу
+        if (!has_role(['admin', 'warehouse_manager'])) {
+            $this->setFlash('error', 'У вас немає доступу до цієї сторінки');
+            $this->redirect('orders');
+            return;
+        }
+        
+        // Отримання замовлення
+        $order = $this->orderModel->getWithCustomer($id);
+        
+        if (!$order) {
+            $this->setFlash('error', 'Замовлення не знайдено');
+            $this->redirect('orders');
+            return;
+        }
+        
+        // Перевірка статусу замовлення
+        if ($order['status'] != 'pending') {
+            $this->setFlash('error', 'Це замовлення вже обробляється або виконано');
+            $this->redirect('orders/view/' . $id);
+            return;
+        }
+        
+        // Отримання товарів замовлення
+        $orderItems = $this->orderModel->getOrderItems($id);
+        
+        // Передача даних у представлення
+        $this->data['order'] = $order;
+        $this->data['orderItems'] = $orderItems;
+        
+        $this->view('warehouse/orders/process');
+    }
+
+    /**
+     * Завершення обробки замовлення
+     *
+     * @param int $id
+     */
+    public function completeProcessing($id) {
+        // Перевірка прав доступу
+        if (!has_role(['admin', 'warehouse_manager'])) {
+            $this->setFlash('error', 'У вас немає доступу до цієї сторінки');
+            $this->redirect('orders');
+            return;
+        }
+        
+        // Перевірка методу запиту
+        if (!$this->isPost()) {
+            $this->redirect('orders/view/' . $id);
+            return;
+        }
+        
+        // Перевірка CSRF-токена
+        $this->validateCsrfToken();
+        
+        // Отримання замовлення
+        $order = $this->orderModel->getById($id);
+        
+        if (!$order) {
+            $this->setFlash('error', 'Замовлення не знайдено');
+            $this->redirect('orders');
+            return;
+        }
+        
+        // Зміна статусу замовлення на "processing"
+        $result = $this->orderModel->updateStatus($id, 'processing');
+        
+        if ($result) {
+            $this->setFlash('success', 'Замовлення успішно оброблено і готове до відвантаження');
+            $this->redirect('orders/view/' . $id);
+        } else {
+            $this->setFlash('error', 'Помилка при зміні статусу замовлення');
+            $this->redirect('orders/process/' . $id);
+        }
+    }
+
+    /**
+     * Відвантаження замовлення (для менеджера складу)
+     *
+     * @param int $id
+     */
+    public function ship($id) {
+        // Перевірка прав доступу
+        if (!has_role(['admin', 'warehouse_manager'])) {
+            $this->setFlash('error', 'У вас немає доступу до цієї сторінки');
+            $this->redirect('orders');
+            return;
+        }
+        
+        // Отримання замовлення
+        $order = $this->orderModel->getWithCustomer($id);
+        
+        if (!$order) {
+            $this->setFlash('error', 'Замовлення не знайдено');
+            $this->redirect('orders');
+            return;
+        }
+        
+        // Перевірка статусу замовлення
+        if ($order['status'] != 'processing') {
+            $this->setFlash('error', 'Це замовлення не готове до відвантаження');
+            $this->redirect('orders/view/' . $id);
+            return;
+        }
+        
+        // Отримання товарів замовлення
+        $orderItems = $this->orderModel->getOrderItems($id);
+        
+        // Передача даних у представлення
+        $this->data['order'] = $order;
+        $this->data['orderItems'] = $orderItems;
+        
+        $this->view('warehouse/orders/ship');
+    }
     
     /**
      * Отображение детальной информации о заказе

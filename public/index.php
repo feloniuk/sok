@@ -108,13 +108,19 @@ $router->post('categories/update/{id}', 'CategoryController', 'update', [RoleMid
 $router->get('categories/delete/{id}', 'CategoryController', 'delete', [RoleMiddleware::allow(['admin'])]);
 
 // Заказы
+// In your router setup (typically in public/index.php or similar)
+
+$router->get('orders', 'OrderController', 'index', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager'])]);
+$router->get('orders/view/{id}', 'OrderController', 'details', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);
+$router->get('orders/process/{id}', 'OrderController', 'process', [new RoleMiddleware(['admin', 'warehouse_manager'])]);
+$router->get('orders/ship/{id}', 'OrderController', 'ship', [new RoleMiddleware(['admin', 'warehouse_manager'])]);
+$router->post('orders/complete_processing/{id}', 'OrderController', 'completeProcessing', [new RoleMiddleware(['admin', 'warehouse_manager'])]);
+$router->post('orders/update_status/{id}', 'OrderController', 'updateStatus', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager'])]);
+
 $router->get('orders/cart', 'OrderController', 'cartAction', [new AuthMiddleware()]);
 $router->post('orders/cart', 'OrderController', 'cartAction', [new AuthMiddleware()]);
-$router->get('orders', 'OrderController', 'index', [new AuthMiddleware()]);
-$router->get('orders/view/{id}', 'OrderController', 'details', [new AuthMiddleware()]);
 $router->get('orders/create', 'OrderController', 'create', [RoleMiddleware::allow(['admin', 'sales_manager', 'customer'])]);
 $router->post('orders/store', 'OrderController', 'store', [RoleMiddleware::allow(['admin', 'sales_manager', 'customer'])]);
-$router->post('orders/update_status/{id}', 'OrderController', 'updateStatus', [RoleMiddleware::allow(['admin', 'sales_manager', 'warehouse_manager'])]);
 $router->get('orders/cancel/{id}', 'OrderController', 'cancel', [new AuthMiddleware()]);
 $router->get('orders/print/{id}', 'OrderController', 'print', [new AuthMiddleware()]);
 $router->get('orders/products_json', 'OrderController', 'getProductsJson', [new AuthMiddleware()]);

@@ -444,3 +444,56 @@ $extra_js = '
         </div>
     </div>
 </div>
+
+<!-- After your existing content in dashboard.php, add this section -->
+<?php if (!empty($pendingOrders)): ?>
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-white">
+                <h6 class="m-0 font-weight-bold">Замовлення, що очікують обробки</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>№ замовлення</th>
+                                <th>Клієнт</th>
+                                <th>Сума</th>
+                                <th>Дата</th>
+                                <th>Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($pendingOrders as $order): ?>
+                                <tr>
+                                    <td><?= $order['order_number'] ?></td>
+                                    <td><?= $order['first_name'] . ' ' . $order['last_name'] ?></td>
+                                    <td><?= number_format($order['total_amount'], 2) ?> грн.</td>
+                                    <td><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="<?= base_url('orders/view/' . $order['id']) ?>" class="btn btn-info" title="Перегляд">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="<?= base_url('orders/process/' . $order['id']) ?>" class="btn btn-primary" title="Обробити">
+                                                <i class="fas fa-box"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="<?= base_url('orders') ?>" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-list me-1"></i> Переглянути всі замовлення
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>

@@ -35,10 +35,15 @@ class WarehouseController extends BaseController {
         // Отримання останніх рухів товарів
         $recentMovements = $this->inventoryMovementModel->getRecent(10);
         
+        // Отримання замовлень, які очікують обробки
+        $orderModel = new Order();
+        $pendingOrders = $orderModel->getFiltered(['status' => 'pending'], 1, 5)['items'];
+        
         // Передача даних у представлення
         $this->data['warehouseStats'] = $warehouseStats;
         $this->data['lowStockProducts'] = $lowStockProducts;
         $this->data['recentMovements'] = $recentMovements;
+        $this->data['pendingOrders'] = $pendingOrders;
         $this->data['title'] = 'Панель керування складом';
         
         $this->view('warehouse/dashboard');
