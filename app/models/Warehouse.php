@@ -1,5 +1,5 @@
 <?php
-// app/models/Warehouse.php - Модель для роботи зі складами
+// app/models/Warehouse.php - Оновлення методів для роботи зі складом
 
 class Warehouse extends BaseModel {
     protected $table = 'warehouses';
@@ -83,7 +83,7 @@ class Warehouse extends BaseModel {
         $todayIncoming = $this->db->getValue($todayIncomingSql, $todayIncomingParams);
         
         // Відвантаження сьогодні
-        $todayOutgoingSql = 'SELECT COALESCE(SUM(quantity), 0) 
+        $todayOutgoingSql = 'SELECT COALESCE(SUM(ABS(quantity)), 0) 
                             FROM inventory_movements 
                             WHERE movement_type = "outgoing" 
                             AND DATE(created_at) = CURDATE()';
@@ -117,9 +117,10 @@ class Warehouse extends BaseModel {
         $inventoryByCategory = $this->db->getAll($inventoryByCategorySql, $inventoryByCategoryParams);
         
         // Розподіл запасів за складами
-        $inventoryByWarehouseSql = 'SELECT w.id, w.name as warehouse_name, COALESCE(SUM(i.quantity), 0) as quantity 
+        $inventoryByWarehouseSql = 'SELECT w.id, w.name as warehouse_name, COALESCE(SUM(p.stock_quantity), 0) as quantity 
                                    FROM warehouses w 
                                    LEFT JOIN inventory i ON w.id = i.warehouse_id 
+                                   LEFT JOIN products p ON i.product_id = p.id
                                    GROUP BY w.id, w.name 
                                    ORDER BY quantity DESC';
         
@@ -128,7 +129,7 @@ class Warehouse extends BaseModel {
         // Рух товарів за останні 14 днів
         $movementsByDaySql = 'SELECT DATE(created_at) as day, 
                               SUM(CASE WHEN movement_type = "incoming" THEN quantity ELSE 0 END) as incoming,
-                              SUM(CASE WHEN movement_type = "outgoing" THEN quantity ELSE 0 END) as outgoing
+                              SUM(CASE WHEN movement_type = "outgoing" THEN ABS(quantity) ELSE 0 END) as outgoing
                               FROM inventory_movements
                               WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)';
         $movementsByDayParams = [];
@@ -175,5 +176,142 @@ class Warehouse extends BaseModel {
             $fields = ['name', 'address'];
         }
         return parent::search($keyword, $fields);
+    }
+    
+    /**
+     * Створення нового складу
+     *
+     * @param array $data
+     * @return int|bool
+     */
+    public function createWarehouse($data) {
+        // Перевірка обов'язкових полів
+        if (empty($data['name']) || empty($data['address'])) {
+            return false;
+        }
+        
+        // Створення складу
+        return $this->create($data);
+    }
+    
+    /**
+     * Оновлення інформації про склад
+     *
+     * @param int $id
+     * @param array $data
+     * @return bool
+     */
+    public function updateWarehouse($id, $data) {
+        // Перевірка обов'язкових полів
+        if (empty($data['name']) || empty($data['address'])) {
+            return false;
+        }
+        
+        // Оновлення складу
+        return $this->update($id, $data);
+    }
+    
+    /**
+     * Отримання наявних товарів на конкретному складі
+     *
+     * @param int $warehouseId
+     * @return array
+     */
+    public function getInventory($warehouseId) {
+        $sql = 'SELECT i.product_id, p.name as product_name, p.price, i.quantity,
+                c.name as category_name, p.image
+                FROM inventory i
+                JOIN products p ON i.product_id = p.id
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE i.warehouse_id = ?
+                ORDER BY p.name';
+        
+        return $this->db->getAll($sql, [$warehouseId]);
+    }
+    
+    /**
+     * Оновлення кількості товару на складі
+     *
+     * @param int $warehouseId
+     * @param int $productId
+     * @param int $quantity
+     * @return bool
+     */
+    public function updateInventory($warehouseId, $productId, $quantity) {
+        // Перевірка наявності запису в інвентарі
+        $existingSql = 'SELECT COUNT(*) FROM inventory WHERE warehouse_id = ? AND product_id = ?';
+        $exists = $this->db->getValue($existingSql, [$warehouseId, $productId]) > 0;
+        
+        if ($exists) {
+            // Оновлення існуючого запису
+            $sql = 'UPDATE inventory SET quantity = ?, updated_at = NOW() 
+                    WHERE warehouse_id = ? AND product_id = ?';
+            $this->db->query($sql, [$quantity, $warehouseId, $productId]);
+        } else {
+            // Створення нового запису
+            $sql = 'INSERT INTO inventory (warehouse_id, product_id, quantity) VALUES (?, ?, ?)';
+            $this->db->query($sql, [$warehouseId, $productId, $quantity]);
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Перевірка наявності достатньої кількості товару на складі
+     *
+     * @param int $warehouseId
+     * @param int $productId
+     * @param int $quantity
+     * @return bool
+     */
+    public function hasEnoughStock($warehouseId, $productId, $quantity) {
+        $sql = 'SELECT quantity FROM inventory WHERE warehouse_id = ? AND product_id = ?';
+        $currentQuantity = $this->db->getValue($sql, [$warehouseId, $productId]) ?: 0;
+        
+        return $currentQuantity >= $quantity;
+    }
+    
+    /**
+     * Отримання інформації про склад за іменем
+     *
+     * @param string $name
+     * @return array|null
+     */
+    public function getByName($name) {
+        return $this->findOne('name = ?', [$name]);
+    }
+    
+    /**
+     * Отримання списку продуктів з низьким запасом на складі
+     *
+     * @param int $warehouseId
+     * @param int $threshold
+     * @return array
+     */
+    public function getLowStockProducts($warehouseId, $threshold = 10) {
+        $sql = 'SELECT p.id, p.name, p.price, i.quantity, c.name as category_name, p.image
+                FROM inventory i
+                JOIN products p ON i.product_id = p.id
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE i.warehouse_id = ? AND i.quantity < ?
+                ORDER BY i.quantity ASC';
+        
+        return $this->db->getAll($sql, [$warehouseId, $threshold]);
+    }
+    
+    /**
+     * Отримання списку продуктів з низьким запасом на всіх складах
+     *
+     * @param int $threshold
+     * @return array
+     */
+    public function getAllLowStockProducts($threshold = 10) {
+        $sql = 'SELECT p.id, p.name, p.price, p.stock_quantity, c.name as category_name, p.image
+                FROM products p
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE p.stock_quantity < ? AND p.is_active = 1
+                ORDER BY p.stock_quantity ASC';
+        
+        return $this->db->getAll($sql, [$threshold]);
     }
 }

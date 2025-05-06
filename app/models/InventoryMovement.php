@@ -1,5 +1,5 @@
 <?php
-// app/models/InventoryMovement.php - Модель для руху товарів
+// app/models/InventoryMovement.php - Розширені методи для руху товарів
 
 class InventoryMovement extends BaseModel {
     protected $table = 'inventory_movements';
@@ -9,17 +9,17 @@ class InventoryMovement extends BaseModel {
     ];
     
     /**
-    * Створення запису про рух товару
-    *
-    * @param array $data
-    * @return int|bool
-    */
+     * Створення запису про рух товару з автоматичним оновленням кількості на складі
+     *
+     * @param array $data
+     * @return int|bool
+     */
     public function create($data) {
         try {
-            // Проверяем, есть ли уже активная транзакция
+            // Перевіряємо, чи є вже активна транзакція
             $inTransaction = $this->db->inTransaction();
             
-            // Начинаем транзакцию только если она еще не начата
+            // Починаємо транзакцію тільки якщо вона ще не почата
             if (!$inTransaction) {
                 $this->db->beginTransaction();
             }
@@ -35,9 +35,21 @@ class InventoryMovement extends BaseModel {
             if (!isset($data['skip_stock_update']) || !$data['skip_stock_update']) {
                 $sql = 'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?';
                 $this->db->query($sql, [$data['quantity'], $data['product_id']]);
+                
+                // Також оновлюємо таблицю inventory, якщо використовується
+                $inventorySql = 'SELECT COUNT(*) FROM inventory WHERE product_id = ? AND warehouse_id = ?';
+                $hasInventoryRecord = $this->db->getValue($inventorySql, [$data['product_id'], $data['warehouse_id']]) > 0;
+                
+                if ($hasInventoryRecord) {
+                    $updateInventorySql = 'UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND warehouse_id = ?';
+                    $this->db->query($updateInventorySql, [$data['quantity'], $data['product_id'], $data['warehouse_id']]);
+                } else {
+                    $insertInventorySql = 'INSERT INTO inventory (product_id, warehouse_id, quantity) VALUES (?, ?, ?)';
+                    $this->db->query($insertInventorySql, [$data['product_id'], $data['warehouse_id'], $data['quantity']]);
+                }
             }
             
-            // Завершаем транзакцию только если мы ее начали
+            // Завершуємо транзакцію тільки якщо ми її почали
             if (!$inTransaction) {
                 $this->db->commit();
             }
@@ -45,7 +57,7 @@ class InventoryMovement extends BaseModel {
             return $id;
             
         } catch (Exception $e) {
-            // Откатываем транзакцию только если мы ее начали
+            // Відкатуємо транзакцію тільки якщо ми її почали
             if (!$inTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
@@ -103,6 +115,16 @@ class InventoryMovement extends BaseModel {
         if (!empty($filters['date_to'])) {
             $conditions[] = 'DATE(im.created_at) <= ?';
             $params[] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['reference_type'])) {
+            $conditions[] = 'im.reference_type = ?';
+            $params[] = $filters['reference_type'];
+        }
+        
+        if (!empty($filters['reference_id'])) {
+            $conditions[] = 'im.reference_id = ?';
+            $params[] = $filters['reference_id'];
         }
         
         if (!empty($filters['keyword'])) {
@@ -181,5 +203,179 @@ class InventoryMovement extends BaseModel {
                 ORDER BY date';
         
         return $this->db->getAll($sql, [$days]);
+    }
+    
+    /**
+     * Перевірка наявності руху товару
+     *
+     * @param int $productId
+     * @param string $movementType
+     * @param string $dateFrom
+     * @param string $dateTo
+     * @return bool
+     */
+    public function hasMovements($productId, $movementType = null, $dateFrom = null, $dateTo = null) {
+        $sql = 'SELECT COUNT(*) FROM inventory_movements WHERE product_id = ?';
+        $params = [$productId];
+        
+        if ($movementType) {
+            $sql .= ' AND movement_type = ?';
+            $params[] = $movementType;
+        }
+        
+        if ($dateFrom) {
+            $sql .= ' AND DATE(created_at) >= ?';
+            $params[] = $dateFrom;
+        }
+        
+        if ($dateTo) {
+            $sql .= ' AND DATE(created_at) <= ?';
+            $params[] = $dateTo;
+        }
+        
+        return $this->db->getValue($sql, $params) > 0;
+    }
+    
+    /**
+     * Отримання сумарної кількості для товару за період
+     *
+     * @param int $productId
+     * @param string $movementType
+     * @param string $dateFrom
+     * @param string $dateTo
+     * @return int
+     */
+    public function getTotalQuantity($productId, $movementType = null, $dateFrom = null, $dateTo = null) {
+        $sql = 'SELECT SUM(';
+        
+        if ($movementType === 'outgoing') {
+            $sql .= 'ABS(quantity)';
+        } else {
+            $sql .= 'quantity';
+        }
+        
+        $sql .= ') FROM inventory_movements WHERE product_id = ?';
+        $params = [$productId];
+        
+        if ($movementType) {
+            $sql .= ' AND movement_type = ?';
+            $params[] = $movementType;
+        }
+        
+        if ($dateFrom) {
+            $sql .= ' AND DATE(created_at) >= ?';
+            $params[] = $dateFrom;
+        }
+        
+        if ($dateTo) {
+            $sql .= ' AND DATE(created_at) <= ?';
+            $params[] = $dateTo;
+        }
+        
+        return $this->db->getValue($sql, $params) ?: 0;
+    }
+    
+    /**
+     * Створення запису про коригування товару (інвентаризація)
+     *
+     * @param int $productId
+     * @param int $warehouseId
+     * @param int $newQuantity
+     * @param string $notes
+     * @param int $userId
+     * @return int|bool
+     */
+    public function adjustInventory($productId, $warehouseId, $newQuantity, $notes, $userId) {
+        try {
+            // Отримуємо поточну кількість товару
+            $productModel = new Product();
+            $product = $productModel->getById($productId);
+            
+            if (!$product) {
+                throw new Exception('Продукт не знайдено');
+            }
+            
+            // Розраховуємо різницю кількості
+            $quantityDifference = $newQuantity - $product['stock_quantity'];
+            
+            // Якщо різниці немає, нічого не робимо
+            if ($quantityDifference == 0) {
+                return true;
+            }
+            
+            // Визначаємо тип руху
+            $movementType = $quantityDifference > 0 ? 'incoming' : 'outgoing';
+            
+            // Створюємо запис про рух
+            $movementData = [
+                'product_id' => $productId,
+                'warehouse_id' => $warehouseId,
+                'quantity' => $quantityDifference,
+                'movement_type' => $movementType,
+                'reference_type' => 'adjustment',
+                'notes' => $notes,
+                'created_by' => $userId
+            ];
+            
+            return $this->create($movementData);
+            
+        } catch (Exception $e) {
+            if (DEBUG_MODE) {
+                error_log("Error in InventoryMovement::adjustInventory: " . $e->getMessage());
+                error_log($e->getTraceAsString());
+            }
+            
+            return false;
+        }
+    }
+    
+    /**
+     * Експорт руху товарів у CSV
+     *
+     * @param array $filters
+     * @return string
+     */
+    public function exportToCSV($filters = []) {
+        // Отримуємо дані для експорту
+        $data = $this->getWithDetails($filters);
+        $items = $data['items'];
+        
+        // Створюємо тимчасовий файл
+        $tempFile = tempnam(sys_get_temp_dir(), 'export');
+        $handle = fopen($tempFile, 'w');
+        
+        // Додаємо заголовки
+        $headers = [
+            'ID', 'Дата', 'Продукт', 'Склад', 'Тип руху', 'Кількість', 
+            'Тип посилання', 'ID посилання', 'Примітки', 'Виконавець'
+        ];
+        
+        // Додаємо BOM для UTF-8
+        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Записуємо заголовки
+        fputcsv($handle, $headers);
+        
+        // Записуємо дані
+        foreach ($items as $item) {
+            $row = [
+                $item['id'],
+                $item['created_at'],
+                $item['product_name'],
+                $item['warehouse_name'],
+                $item['movement_type'],
+                $item['quantity'],
+                $item['reference_type'],
+                $item['reference_id'],
+                $item['notes'],
+                $item['first_name'] . ' ' . $item['last_name']
+            ];
+            
+            fputcsv($handle, $row);
+        }
+        
+        fclose($handle);
+        
+        return $tempFile;
     }
 }
