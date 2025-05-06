@@ -1,227 +1,181 @@
 <?php
-// app/views/reports/generate.php
-$title = 'Генерація звітів';
-
-// Додаткові CSS стилі
-$extra_css = '
-<style>
-    .report-card {
-        border-radius: 0.5rem;
-        overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        border: none;
-        margin-bottom: 20px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .report-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    }
-    
-    .report-icon {
-        font-size: 2.5rem;
-        color: var(--primary);
-        margin-bottom: 1rem;
-    }
-</style>';
-
-// Додаткові JS скрипти
-$extra_js = '
-<script>
-$(document).ready(function() {
-    // Ініціалізація вибору дати
-    $(".datepicker").datepicker({
-        format: "yyyy-mm-dd",
-        todayBtn: "linked",
-        clearBtn: true,
-        language: "uk",
-        autoclose: true,
-        todayHighlight: true
-    });
-    
-    // Залежність доступних полів від типу звіту
-    $("#report_type").on("change", function() {
-        const reportType = $(this).val();
-        
-        // Спочатку приховуємо всі неспільні поля
-        $(".report-field").hide();
-        
-        // Відображення відповідних полів для вибраного типу звіту
-        if (reportType) {
-            $(".report-field-" + reportType).show();
-        }
-    });
-});
-</script>';
+// app/views/reports/generate.php - Сторінка генерації звіту
 ?>
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="<?= base_url() ?>">Головна</a></li>
-                <li class="breadcrumb-item"><a href="<?= base_url('reports') ?>">Звіти</a></li>
-                <li class="breadcrumb-item active">Генерація звіту</li>
-            </ol>
-        </nav>
-    </div>
-</div>
-
 <div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card report-card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-cog me-2"></i> Параметри звіту
-                </h5>
+    <div class="col-md-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Генерація звіту</h6>
             </div>
             <div class="card-body">
-                <form action="<?= base_url('reports/generate') ?>" method="GET">
-                    <!-- Тип звіту -->
-                    <div class="mb-3">
-                        <label for="report_type" class="form-label">Тип звіту</label>
-                        <select name="report_type" id="report_type" class="form-select" required>
-                            <option value="">Виберіть тип звіту</option>
-                            <option value="sales" <?= isset($filter['report_type']) && $filter['report_type'] == 'sales' ? 'selected' : '' ?>>Звіт по продажам</option>
-                            <option value="products" <?= isset($filter['report_type']) && $filter['report_type'] == 'products' ? 'selected' : '' ?>>Звіт по продуктам</option>
-                            <option value="customers" <?= isset($filter['report_type']) && $filter['report_type'] == 'customers' ? 'selected' : '' ?>>Звіт по клієнтам</option>
-                            <option value="inventory" <?= isset($filter['report_type']) && $filter['report_type'] == 'inventory' ? 'selected' : '' ?>>Звіт по складським запасам</option>
-                            <option value="orders" <?= isset($filter['report_type']) && $filter['report_type'] == 'orders' ? 'selected' : '' ?>>Звіт по замовленням</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Період -->
-                    <div class="mb-3">
-                        <label class="form-label">Період</label>
-                        <div class="row g-2">
-                            <div class="col">
-                                <input type="text" class="form-control datepicker" name="start_date" placeholder="З" value="<?= $filter['start_date'] ?? date('Y-m-d', strtotime('-1 month')) ?>">
+                <form method="get" action="<?= base_url('reports/generate') ?>">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="report_type" class="form-label">Тип звіту</label>
+                                <select name="report_type" id="report_type" class="form-select" required>
+                                    <option value="">Оберіть тип звіту</option>
+                                    <option value="sales" <?= ($reportType ?? '') == 'sales' ? 'selected' : '' ?>>Звіт з продажів</option>
+                                    <option value="products" <?= ($reportType ?? '') == 'products' ? 'selected' : '' ?>>Звіт з товарів</option>
+                                    <option value="customers" <?= ($reportType ?? '') == 'customers' ? 'selected' : '' ?>>Звіт по клієнтах</option>
+                                    <option value="orders" <?= ($reportType ?? '') == 'orders' ? 'selected' : '' ?>>Звіт по замовленнях</option>
+                                    <option value="inventory" <?= ($reportType ?? '') == 'inventory' ? 'selected' : '' ?>>Звіт по складських запасах</option>
+                                </select>
                             </div>
-                            <div class="col">
-                                <input type="text" class="form-control datepicker" name="end_date" placeholder="По" value="<?= $filter['end_date'] ?? date('Y-m-d') ?>">
+                            
+                            <div class="mb-3">
+                                <label for="start_date" class="form-label">Початкова дата</label>
+                                <input type="date" name="start_date" id="start_date" class="form-control" value="<?= $filters['start_date'] ?? date('Y-m-d', strtotime('-30 days')) ?>">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="end_date" class="form-label">Кінцева дата</label>
+                                <input type="date" name="end_date" id="end_date" class="form-control" value="<?= $filters['end_date'] ?? date('Y-m-d') ?>">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="category_id" class="form-label">Категорія</label>
+                                <select name="category_id" id="category_id" class="form-select">
+                                    <option value="">Всі категорії</option>
+                                    <?php foreach ($categories as $category): ?>
+                                        <option value="<?= $category['id'] ?>" <?= ($filters['category_id'] ?? '') == $category['id'] ? 'selected' : '' ?>>
+                                            <?= $category['name'] ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="status" class="form-label">Статус замовлення (для звітів по замовленнях)</label>
+                                <select name="status" id="status" class="form-select">
+                                    <option value="">Всі статуси</option>
+                                    <option value="pending" <?= ($filters['status'] ?? '') == 'pending' ? 'selected' : '' ?>>Очікує</option>
+                                    <option value="processing" <?= ($filters['status'] ?? '') == 'processing' ? 'selected' : '' ?>>Обробляється</option>
+                                    <option value="shipped" <?= ($filters['status'] ?? '') == 'shipped' ? 'selected' : '' ?>>Відправлено</option>
+                                    <option value="delivered" <?= ($filters['status'] ?? '') == 'delivered' ? 'selected' : '' ?>>Доставлено</option>
+                                    <option value="cancelled" <?= ($filters['status'] ?? '') == 'cancelled' ? 'selected' : '' ?>>Скасовано</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="format" class="form-label">Формат звіту</label>
+                                <select name="format" id="format" class="form-select">
+                                    <option value="html" <?= ($format ?? '') == 'html' ? 'selected' : '' ?>>HTML (перегляд у браузері)</option>
+                                    <option value="csv" <?= ($format ?? '') == 'csv' ? 'selected' : '' ?>>CSV</option>
+                                    <option value="excel" <?= ($format ?? '') == 'excel' ? 'selected' : '' ?>>Excel</option>
+                                    <option value="pdf" <?= ($format ?? '') == 'pdf' ? 'selected' : '' ?>>PDF</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Поля для звіту по продажам і продуктам -->
-                    <div class="mb-3 report-field report-field-sales report-field-products" style="display: none;">
-                        <label for="category_id" class="form-label">Категорія</label>
-                        <select name="category_id" id="category_id" class="form-select">
-                            <option value="">Всі категорії</option>
-                            <?php foreach ($categories ?? [] as $category): ?>
-                                <option value="<?= $category['id'] ?>" <?= isset($filter['category_id']) && $filter['category_id'] == $category['id'] ? 'selected' : '' ?>>
-                                    <?= $category['name'] ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <!-- Поля для звіту по замовленням -->
-                    <div class="mb-3 report-field report-field-orders" style="display: none;">
-                        <label for="status" class="form-label">Статус замовлення</label>
-                        <select name="status" id="status" class="form-select">
-                            <option value="">Всі статуси</option>
-                            <option value="pending" <?= isset($filter['status']) && $filter['status'] == 'pending' ? 'selected' : '' ?>>Очікує</option>
-                            <option value="processing" <?= isset($filter['status']) && $filter['status'] == 'processing' ? 'selected' : '' ?>>Обробляється</option>
-                            <option value="shipped" <?= isset($filter['status']) && $filter['status'] == 'shipped' ? 'selected' : '' ?>>Відправлено</option>
-                            <option value="delivered" <?= isset($filter['status']) && $filter['status'] == 'delivered' ? 'selected' : '' ?>>Доставлено</option>
-                            <option value="cancelled" <?= isset($filter['status']) && $filter['status'] == 'cancelled' ? 'selected' : '' ?>>Скасовано</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Формат звіту -->
-                    <div class="mb-3">
-                        <label for="format" class="form-label">Формат звіту</label>
-                        <select name="format" id="format" class="form-select" required>
-                            <option value="html" <?= (!isset($filter['format']) || $filter['format'] == 'html') ? 'selected' : '' ?>>HTML (у браузері)</option>
-                            <option value="pdf" <?= isset($filter['format']) && $filter['format'] == 'pdf' ? 'selected' : '' ?>>PDF</option>
-                            <option value="excel" <?= isset($filter['format']) && $filter['format'] == 'excel' ? 'selected' : '' ?>>Excel</option>
-                            <option value="csv" <?= isset($filter['format']) && $filter['format'] == 'csv' ? 'selected' : '' ?>>CSV</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Кнопка генерації -->
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-file-export me-1"></i> Згенерувати звіт
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-file-export me-2"></i> Згенерувати звіт
                         </button>
+                        <a href="<?= base_url('reports') ?>" class="btn btn-outline-secondary btn-lg ms-2">
+                            <i class="fas fa-arrow-left me-2"></i> Назад
+                        </a>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-8 mb-4">
-        <div class="card report-card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-book me-2"></i> Доступні звіти
-                </h5>
+</div>
+
+<!-- Інформація про типи звітів -->
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Інформація про доступні типи звітів</h6>
             </div>
             <div class="card-body">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="card report-card">
-                            <div class="card-body text-center">
-                                <div class="report-icon">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <h5 class="card-title">Звіт по продажам</h5>
-                                <p class="card-text text-muted">Аналіз продажів за період, включаючи динаміку та розподіл за категоріями</p>
-                                <a href="<?= base_url('reports/generate?report_type=sales') ?>" class="btn btn-outline-primary">Вибрати</a>
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-chart-line text-primary me-2"></i> Звіт з продажів
+                                </h5>
+                                <p class="card-text">Детальний аналіз продажів за обраний період. Включає інформацію про виручку, прибуток, динаміку продажів, розподіл за категоріями та топ продукти.</p>
+                                <ul>
+                                    <li>Динаміка продажів за період</li>
+                                    <li>Розподіл продажів за категоріями</li>
+                                    <li>Топ продуктів за виручкою</li>
+                                    <li>Детальні дані по продуктах</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card report-card">
-                            <div class="card-body text-center">
-                                <div class="report-icon">
-                                    <i class="fas fa-box"></i>
-                                </div>
-                                <h5 class="card-title">Звіт по продуктам</h5>
-                                <p class="card-text text-muted">Аналіз продуктів за обсягом продажів, виручкою і прибутком</p>
-                                <a href="<?= base_url('reports/generate?report_type=products') ?>" class="btn btn-outline-primary">Вибрати</a>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-box text-success me-2"></i> Звіт з товарів
+                                </h5>
+                                <p class="card-text">Аналіз продажів товарів за обраний період. Включає інформацію про кількість проданих товарів, виручку, прибуток, рентабельність.</p>
+                                <ul>
+                                    <li>Розподіл кількості продажів за продуктами</li>
+                                    <li>Виручка за продуктами</li>
+                                    <li>Рентабельність продуктів</li>
+                                    <li>Детальна статистика по кожному продукту</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card report-card">
-                            <div class="card-body text-center">
-                                <div class="report-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <h5 class="card-title">Звіт по клієнтам</h5>
-                                <p class="card-text text-muted">Аналіз активності клієнтів, їх замовлень і загальних витрат</p>
-                                <a href="<?= base_url('reports/generate?report_type=customers') ?>" class="btn btn-outline-primary">Вибрати</a>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-users text-info me-2"></i> Звіт по клієнтах
+                                </h5>
+                                <p class="card-text">Аналіз активності клієнтів за обраний період. Включає інформацію про кількість замовлень, суму витрат, середній чек.</p>
+                                <ul>
+                                    <li>Топ клієнтів за сумою витрат</li>
+                                    <li>Кількість замовлень кожного клієнта</li>
+                                    <li>Середній чек клієнтів</li>
+                                    <li>Дати першого та останнього замовлення</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card report-card">
-                            <div class="card-body text-center">
-                                <div class="report-icon">
-                                    <i class="fas fa-warehouse"></i>
-                                </div>
-                                <h5 class="card-title">Звіт по складським запасам</h5>
-                                <p class="card-text text-muted">Аналіз запасів за категоріями, включаючи вартість і розподіл</p>
-                                <a href="<?= base_url('reports/generate?report_type=inventory') ?>" class="btn btn-outline-primary">Вибрати</a>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-shopping-cart text-warning me-2"></i> Звіт по замовленнях
+                                </h5>
+                                <p class="card-text">Статистика замовлень за обраний період. Включає інформацію про кількість замовлень, статуси, суми, середній чек.</p>
+                                <ul>
+                                    <li>Динаміка кількості замовлень за період</li>
+                                    <li>Розподіл замовлень за статусами</li>
+                                    <li>Детальна інформація по кожному замовленню</li>
+                                    <li>Загальні показники (сума, середній чек)</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card report-card">
-                            <div class="card-body text-center">
-                                <div class="report-icon">
-                                    <i class="fas fa-shopping-cart"></i>
-                                </div>
-                                <h5 class="card-title">Звіт по замовленням</h5>
-                                <p class="card-text text-muted">Аналіз замовлень за статусом, способом оплати і сумою</p>
-                                <a href="<?= base_url('reports/generate?report_type=orders') ?>" class="btn btn-outline-primary">Вибрати</a>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-warehouse text-danger me-2"></i> Звіт по складських запасах
+                                </h5>
+                                <p class="card-text">Звіт про поточні запаси на складі. Включає інформацію про наявність, вартість запасів, товари з низьким запасом.</p>
+                                <ul>
+                                    <li>Загальна кількість та вартість запасів</li>
+                                    <li>Розподіл запасів за категоріями</li>
+                                    <li>Детальна інформація по кожному товару</li>
+                                    <li>Список товарів з низьким запасом</li>
+                                </ul>
                             </div>
                         </div>
                     </div>

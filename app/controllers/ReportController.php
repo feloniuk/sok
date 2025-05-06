@@ -147,18 +147,20 @@ class ReportController extends BaseController {
         $this->view('reports/products');
     }
     
+    
+
     /**
-     * Страница генерации произвольного отчета
+     * Метод для генерації звіту
      */
     public function generate() {
-        // Проверка прав доступа
+        // Перевірка прав доступу
         if (!has_role(['admin', 'sales_manager'])) {
-            $this->setFlash('error', 'У вас нет доступа к этой странице.');
+            $this->setFlash('error', 'У вас немає доступу до цієї сторінки.');
             $this->redirect('dashboard');
             return;
         }
         
-        // Получение параметров отчета
+        // Отримання параметрів звіту
         $reportType = $this->input('report_type');
         $format = $this->input('format', 'html');
         $filter = [
@@ -168,50 +170,50 @@ class ReportController extends BaseController {
             'status' => $this->input('status')
         ];
         
-        // Если тип отчета выбран, генерируем отчет
+        // Якщо тип звіту вибрано, генеруємо звіт
         if ($reportType) {
             switch ($reportType) {
                 case 'sales':
                     $reportData = $this->getSalesData($filter);
-                    $reportTitle = 'Отчет по продажам';
+                    $reportTitle = 'Звіт по продажах';
                     break;
                     
                 case 'products':
                     $reportData = $this->getProductsData($filter);
-                    $reportTitle = 'Отчет по продуктам';
+                    $reportTitle = 'Звіт по продуктах';
                     break;
                     
                 case 'customers':
                     $reportData = $this->getCustomersData($filter);
-                    $reportTitle = 'Отчет по клиентам';
+                    $reportTitle = 'Звіт по клієнтах';
                     break;
                     
                 case 'inventory':
                     $reportData = $this->getInventoryData($filter);
-                    $reportTitle = 'Отчет по складским запасам';
+                    $reportTitle = 'Звіт по складських запасах';
                     break;
                     
                 case 'orders':
                     $reportData = $this->getOrdersData($filter);
-                    $reportTitle = 'Отчет по заказам';
+                    $reportTitle = 'Звіт по замовленнях';
                     break;
                     
                 default:
                     $reportData = [];
-                    $reportTitle = 'Неизвестный тип отчета';
+                    $reportTitle = 'Невідомий тип звіту';
             }
             
-            // Получение категорий для фильтра и формирования заголовка
+            // Отримання категорій для фільтра та формування заголовка
             $categories = $this->categoryModel->getAll();
             
-            // Передача данных в представление
+            // Передача даних у представлення
             $this->data['reportData'] = $reportData;
             $this->data['reportTitle'] = $reportTitle;
             $this->data['reportType'] = $reportType;
             $this->data['filter'] = $filter;
             $this->data['categories'] = $categories;
             
-            // Выбор формата вывода
+            // Вибір формату виводу
             if ($format === 'pdf') {
                 $this->generatePdf($reportType, $reportTitle, $reportData, $filter);
             } elseif ($format === 'excel') {
@@ -219,14 +221,14 @@ class ReportController extends BaseController {
             } elseif ($format === 'csv') {
                 $this->generateCsv($reportType, $reportTitle, $reportData, $filter);
             } else {
-                // По умолчанию - HTML
+                // По замовчуванню - HTML
                 $this->view('reports/generated');
             }
         } else {
-            // Получение категорий для фильтра
+            // Отримання категорій для фільтра
             $categories = $this->categoryModel->getAll();
             
-            // Передача данных в представление
+            // Передача даних у представлення
             $this->data['filter'] = $filter;
             $this->data['categories'] = $categories;
             
