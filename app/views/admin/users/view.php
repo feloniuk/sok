@@ -94,10 +94,6 @@ $extra_css = '
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="h2 mb-0">
-                <?= $title ?>
-                <span class="badge bg-<?= getRoleBadgeClass($user['role']) ?> ms-2">
-                    <?= getRoleName($user['role']) ?>
-                </span>
             </h1>
             
             <div class="btn-group">

@@ -119,27 +119,16 @@ $extra_js = '
 <section class="mb-5">
     <h2 class="text-center mb-4">Категорії соків</h2>
     <div class="row g-4">
-        <div class="col-md-4">
-            <a href="<?= base_url('categories/view/1') ?>" class="text-decoration-none">
-                <div class="category-card" style="background-image: url('<?= asset_url('images/fruit_juices.jpg') ?>');">
-                    <div class="category-title">Фруктові соки</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="<?= base_url('categories/view/2') ?>" class="text-decoration-none">
-                <div class="category-card" style="background-image: url('<?= asset_url('images/vegetable_juices.jpg') ?>');">
-                    <div class="category-title">Овочеві соки</div>
-                </div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="<?= base_url('categories/view/3') ?>" class="text-decoration-none">
-                <div class="category-card" style="background-image: url('<?= asset_url('images/smoothies.jpg') ?>');">
-                    <div class="category-title">Смузі</div>
-                </div>
-            </a>
-        </div>
+        <?php foreach ($categories as $category): ?>
+            
+            <div class="col-md-4">
+                <a href="<?= base_url('categories/view/' . $category['id']) ?>) ?>" class="text-decoration-none">
+                    <div class="category-card" style="background-image: url('<?= $category['image'] ? upload_url($category['image']) : asset_url('images/no-image.jpg') ?>');">
+                        <div class="category-title"><?= $category['name'] ?></div>
+                    </div>
+                </a>
+            </div>
+        <?php endforeach; ?>
     </div>
 </section>
 
@@ -231,7 +220,7 @@ $extra_js = '
                     </div>
                     <p class="card-text">«Чудові продукти! Апельсиновий сік просто неймовірний - свіжий та натуральний смак. Замовляю вже втретє і завжди задоволена якістю.»</p>
                     <div class="d-flex align-items-center">
-                        <img src="<?= asset_url('images/testimonial-1.jpg') ?>" alt="Олена" class="rounded-circle me-3" width="50" height="50">
+                        <img src="<?= asset_url('images/user-profile.png') ?>" alt="Олена" class="rounded-circle me-3" width="50" height="50">
                         <div>
                             <h6 class="card-title mb-0">Олена Петренко</h6>
                             <small class="text-muted">Київ</small>
@@ -252,7 +241,7 @@ $extra_js = '
                     </div>
                     <p class="card-text">«Дуже задоволений сервісом! Замовляв набір детокс-напоїв, доставка була вчасною, все гарно запаковано. Напої допомогли мені відновити енергію.»</p>
                     <div class="d-flex align-items-center">
-                        <img src="<?= asset_url('images/testimonial-2.jpg') ?>" alt="Максим" class="rounded-circle me-3" width="50" height="50">
+                        <img src="<?= asset_url('images/user-profile.png') ?>" alt="Максим" class="rounded-circle me-3" width="50" height="50">
                         <div>
                             <h6 class="card-title mb-0">Максим Коваленко</h6>
                             <small class="text-muted">Львів</small>
@@ -273,7 +262,7 @@ $extra_js = '
                     </div>
                     <p class="card-text">«Регулярно замовляю смузі для всієї родини. Діти в захваті від ягідного смузі, а я віддаю перевагу зеленому. Якість на висоті, рекомендую!»</p>
                     <div class="d-flex align-items-center">
-                        <img src="<?= asset_url('images/testimonial-3.jpg') ?>" alt="Ірина" class="rounded-circle me-3" width="50" height="50">
+                        <img src="<?= asset_url('images/user-profile.png') ?>" alt="Ірина" class="rounded-circle me-3" width="50" height="50">
                         <div>
                             <h6 class="card-title mb-0">Ірина Сидоренко</h6>
                             <small class="text-muted">Одеса</small>

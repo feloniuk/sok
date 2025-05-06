@@ -167,6 +167,72 @@ class User extends BaseModel {
     }
     
     /**
+     * Получение пользователей с фильтрацией и пагинацией
+     *
+     * @param array $filter
+     * @param int $page
+     * @param int $perPage
+     * @return array
+     */
+    public function getFiltered($filter = [], $page = 1, $perPage = ITEMS_PER_PAGE) {
+        // Формирование условий для SQL-запроса
+        $conditions = [];
+        $params = [];
+        
+        // Фильтр по роли
+        if (!empty($filter['role'])) {
+            $conditions[] = 'role = ?';
+            $params[] = $filter['role'];
+        }
+        
+        // Поиск по ключевому слову
+        if (!empty($filter['keyword'])) {
+            $keywordConditions = [];
+            $searchFields = ['username', 'email', 'first_name', 'last_name', 'phone'];
+            
+            foreach ($searchFields as $field) {
+                $keywordConditions[] = "$field LIKE ?";
+                $params[] = '%' . $filter['keyword'] . '%';
+            }
+            
+            $conditions[] = '(' . implode(' OR ', $keywordConditions) . ')';
+        }
+        
+        // Формирование условия WHERE
+        $whereClause = '';
+        if (!empty($conditions)) {
+            $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+        }
+        
+        // Формирование SQL-запроса
+        $sql = "SELECT * FROM {$this->table} $whereClause ORDER BY id DESC";
+        
+        // Пагинация
+        $page = max(1, intval($page));
+        
+        // Получение общего количества записей
+        $countSql = "SELECT COUNT(*) FROM {$this->table} $whereClause";
+        $totalItems = $this->db->getValue($countSql, $params);
+        
+        // Расчет пагинации
+        $totalPages = ceil($totalItems / $perPage);
+        $page = min($page, max(1, $totalPages));
+        $offset = ($page - 1) * $perPage;
+        
+        // Получение записей для текущей страницы
+        $pageSql = "$sql LIMIT $offset, $perPage";
+        $items = $this->db->getAll($pageSql, $params);
+        
+        return [
+            'items' => $items,
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'total_items' => $totalItems,
+            'total_pages' => $totalPages
+        ];
+    }
+    
+    /**
      * Получение данных для информационной панели
      *
      * @param string $role

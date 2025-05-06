@@ -92,7 +92,6 @@ $extra_js = '
 
 <div class="row mb-4">
     <div class="col-md-8">
-        <h1 class="h3 mb-0 text-gray-800"><?= $title ?></h1>
         <p class="text-muted">Загальна кількість користувачів: <?= $pagination['total_items'] ?? 0 ?></p>
     </div>
     <div class="col-md-4 text-end">
