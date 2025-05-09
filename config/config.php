@@ -19,7 +19,7 @@ define('PASSWORD_HASH_ALGO', PASSWORD_BCRYPT);
 define('PASSWORD_HASH_OPTIONS', ['cost' => 12]);
 
 // Настройки пагинации
-define('ITEMS_PER_PAGE', 10);
+define('ITEMS_PER_PAGE', 12);
 
 // Параметры загрузки файлов
 define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB

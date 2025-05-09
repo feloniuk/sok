@@ -19,7 +19,7 @@ class HomeController extends BaseController {
         $featuredProducts = $this->productModel->getFeatured(6);
         
         // Получение категорий для меню
-        $categories = $this->categoryModel->getForMenu(5);
+        $categories = $this->categoryModel->getForMenu(6);
         
         // Получение новых продуктов
         $newProducts = $this->productModel->getFiltered(1, 8, [

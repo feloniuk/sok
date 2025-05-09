@@ -110,8 +110,9 @@ $router->get('categories/delete/{id}', 'CategoryController', 'delete', [RoleMidd
 // Заказы
 // In your router setup (typically in public/index.php or similar)
 
-$router->get('orders', 'OrderController', 'index', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager'])]);
+$router->get('orders', 'OrderController', 'index', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);
 $router->get('orders/view/{id}', 'OrderController', 'details', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);
+$router->get('admin/orders/view/{id}', 'OrderController', 'details', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);
 $router->get('orders/process/{id}', 'OrderController', 'process', [new RoleMiddleware(['admin', 'warehouse_manager'])]);
 $router->get('orders/ship/{id}', 'OrderController', 'ship', [new RoleMiddleware(['admin', 'warehouse_manager'])]);
 $router->post('orders/complete_processing/{id}', 'OrderController', 'completeProcessing', [new RoleMiddleware(['admin', 'warehouse_manager'])]);
