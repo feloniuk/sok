@@ -53,13 +53,48 @@ class WarehouseController extends BaseController {
      * Сторінка інвентаризації з підтримкою штрихкодів
      */
     public function inventory() {
-        // Обробка AJAX запиту для пошуку по штрихкоду
-        if ($this->isPost() && $this->input('action') === 'search_barcode') {
-            $this->searchByBarcode();
-            return;
+        // Обработка поиска по штрихкоду через GET
+        $foundProduct = null;
+        $searchError = null;
+        $searchBarcode = '';
+        
+        if ($this->input('search_barcode') === '1' && !empty($this->input('barcode'))) {
+            $barcode = trim($this->input('barcode', ''));
+            $searchBarcode = $barcode;
+            
+            if (!empty($barcode)) {
+                // Простая валидация - только цифры
+                if (preg_match('/^[0-9]+$/', $barcode)) {
+                    // Преобразуем штрихкод в ID продукта
+                    $productId = intval($barcode);
+                    
+                    // Ищем продукт
+                    $foundProduct = $this->productModel->getById($productId);
+                    
+                    if ($foundProduct) {
+                        // Получаем категорию если есть
+                        if ($foundProduct['category_id']) {
+                            $category = $this->categoryModel->getById($foundProduct['category_id']);
+                            $foundProduct['category_name'] = $category ? $category['name'] : '-';
+                        } else {
+                            $foundProduct['category_name'] = '-';
+                        }
+                        
+                        // Генерируем штрихкод для отображения
+                        $foundProduct['barcode'] = str_pad($foundProduct['id'], 8, '0', STR_PAD_LEFT);
+                    } else {
+                        $searchError = 'Товар з штрихкодом ' . $barcode . ' не знайдено';
+                    }
+                } else {
+                    $searchError = 'Штрихкод повинен містити тільки цифри';
+                }
+            } else {
+                $searchError = 'Введіть штрихкод для пошуку';
+            }
         }
         
-        // Отримання параметрів фільтрації та пагінації
+        // Остальной код метода остается как есть...
+        // Получение параметров фильтрации и пагинации
         $page = intval($this->input('page', 1));
         
         $filters = [
@@ -73,19 +108,19 @@ class WarehouseController extends BaseController {
         
         // Якщо вибрано фільтр "тільки товари з низьким запасом"
         if (!empty($filters['low_stock'])) {
-            $filters['max_stock'] = 10; // Встановлюємо максимальне значення 10 як "низький запас"
+            $filters['max_stock'] = 10;
         }
         
-        // Отримання продуктів з пагінацією та фільтрацією
+        // Получение продуктов с пагинацией и фильтрацией
         $productsData = $this->productModel->getFiltered($page, ITEMS_PER_PAGE, $filters);
         
-        // Отримання категорій для фільтра
+        // Получение категорий для фильтра
         $categories = $this->categoryModel->getAll();
         
-        // Отримання складів
+        // Получение складов
         $warehouses = $this->warehouseModel->getAll();
         
-        // Передача даних у представлення
+        // Передача данных в представление
         $this->data['products'] = $productsData['items'];
         $this->data['pagination'] = [
             'current_page' => $productsData['current_page'],
@@ -96,6 +131,9 @@ class WarehouseController extends BaseController {
         $this->data['categories'] = $categories;
         $this->data['warehouses'] = $warehouses;
         $this->data['filters'] = $filters;
+        $this->data['foundProduct'] = $foundProduct;
+        $this->data['searchError'] = $searchError;
+        $this->data['searchBarcode'] = $searchBarcode;
         $this->data['title'] = 'Інвентаризація складу';
         
         $this->view('warehouse/inventory');
@@ -104,38 +142,55 @@ class WarehouseController extends BaseController {
     /**
      * Пошук товару по штрихкоду (AJAX)
      */
-    private function searchByBarcode() {
-        header('Content-Type: application/json');
+    public function searchByBarcode() {
+        // Перевірка методу запиту
+        if (!$this->isPost()) {
+            $this->json(['error' => 'Неправильний метод запиту'], 405);
+            return;
+        }
+        
+        // Перевірка CSRF токена (можна пропустити для AJAX, але краще залишити)
+        try {
+            $this->validateCsrfToken();
+        } catch (Exception $e) {
+            // Для AJAX запитів можемо пропустити CSRF перевірку або використати альтернативний підхід
+            // $this->json(['error' => 'CSRF token validation failed'], 403);
+            // return;
+        }
         
         $barcode = $this->input('barcode', '');
         
         if (empty($barcode)) {
-            echo json_encode(['error' => 'Штрихкод не вказано']);
-            exit;
+            $this->json(['error' => 'Штрихкод не вказано'], 400);
+            return;
         }
         
-        // Парсинг штрихкоду для отримання ID продукту
+        // Валідація штрихкоду
+        if (!$this->validateBarcode($barcode)) {
+            $this->json(['error' => 'Некоректний формат штрихкоду'], 400);
+            return;
+        }
+        
+        // Парсинг штрихкоду
         $productId = $this->parseBarcode($barcode);
         
         if (!$productId) {
-            echo json_encode(['error' => 'Некоректний штрихкод']);
-            exit;
+            $this->json(['error' => 'Некоректний штрихкод'], 400);
+            return;
         }
         
-        // Пошук продукту в базі даних
+        // Пошук продукту
         $product = $this->productModel->getById($productId);
         
         if (!$product) {
-            echo json_encode(['error' => 'Товар не знайдено']);
-            exit;
+            $this->json(['error' => 'Товар не знайдено'], 404);
+            return;
         }
         
-        // Отримання додаткової інформації про категорію
+        // Отримання інформації про категорію
+        $category = null;
         if ($product['category_id']) {
             $category = $this->categoryModel->getById($product['category_id']);
-            $product['category_name'] = $category ? $category['name'] : '-';
-        } else {
-            $product['category_name'] = '-';
         }
         
         // Формування відповіді
@@ -144,23 +199,38 @@ class WarehouseController extends BaseController {
             'product' => [
                 'id' => $product['id'],
                 'name' => $product['name'],
+                'description' => $product['description'] ?? '',
                 'barcode' => $this->generateBarcode($product['id']),
-                'price' => $product['price'],
-                'stock_quantity' => $product['stock_quantity'],
-                'category_name' => $product['category_name'],
-                'image' => $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg')
+                'price' => floatval($product['price']),
+                'stock_quantity' => intval($product['stock_quantity']),
+                'category_name' => $category ? $category['name'] : 'Без категорії',
+                'image' => $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg'),
+                'created_at' => $product['created_at'],
+                'updated_at' => $product['updated_at']
             ]
         ];
         
-        echo json_encode($response);
-        exit;
+        $this->json($response);
     }
     
     /**
-     * Генерація штрихкоду з ID продукту
+     * Валідація штрихкоду
      */
-    private function generateBarcode($productId) {
-        return str_pad($productId, 8, '0', STR_PAD_LEFT);
+    private function validateBarcode($barcode) {
+        // Видаляємо пробіли та інші символи
+        $barcode = trim($barcode);
+        
+        // Перевіряємо, чи містить тільки цифри
+        if (!preg_match('/^[0-9]+$/', $barcode)) {
+            return false;
+        }
+        
+        // Перевіряємо довжину (від 1 до 8 цифр)
+        if (strlen($barcode) < 1 || strlen($barcode) > 8) {
+            return false;
+        }
+        
+        return true;
     }
     
     /**
@@ -190,23 +260,10 @@ class WarehouseController extends BaseController {
     }
     
     /**
-     * Валідація штрихкоду
+     * Генерація штрихкоду з ID продукту
      */
-    private function validateBarcode($barcode) {
-        // Видаляємо пробіли та інші символи
-        $barcode = trim($barcode);
-        
-        // Перевіряємо, чи містить тільки цифри
-        if (!preg_match('/^[0-9]+$/', $barcode)) {
-            return false;
-        }
-        
-        // Перевіряємо довжину (від 1 до 8 цифр)
-        if (strlen($barcode) < 1 || strlen($barcode) > 8) {
-            return false;
-        }
-        
-        return true;
+    private function generateBarcode($productId) {
+        return str_pad($productId, 8, '0', STR_PAD_LEFT);
     }
     
     /**

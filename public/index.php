@@ -135,6 +135,13 @@ $router->get('warehouse/add_movement', 'WarehouseController', 'addMovement', [Ro
 $router->post('warehouse/store_movement', 'WarehouseController', 'storeMovement', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->get('warehouse/get_product_stock', 'WarehouseController', 'getProductStock', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 
+// Маршрут для поиска по штрихкоду
+$router->post('warehouse/searchByBarcode', 'WarehouseController', 'searchByBarcode');
+
+// Альтернативные варианты маршрута (если нужно)
+$router->post('warehouse/search_barcode', 'WarehouseController', 'searchByBarcode');
+$router->post('warehouse/barcode_search', 'WarehouseController', 'searchByBarcode');
+
 // Пользователи
 $router->get('users', 'UserController', 'index', [RoleMiddleware::allow(['admin'])]);
 $router->get('users/view/{id}', 'UserController', 'details', [RoleMiddleware::allow(['admin'])]);

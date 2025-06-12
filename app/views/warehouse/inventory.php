@@ -1,6 +1,6 @@
 <?php
 // app/views/warehouse/inventory.php - Полная исправленная сторінка інвентаризації складу
-$title = 'Інвентаризація складу';
+$title = '';
 
 // Функції для фільтрації та пагінації
 function buildFilterUrl($newParams = []) {
@@ -126,241 +126,6 @@ $extra_css = '
     }
 </style>';
 
-// Підключення додаткових JS
-$extra_js = '
-<script>
-    $(document).ready(function() {
-        // Змінні для роботи зі сканером
-        let scannerActive = false;
-        let scanBuffer = "";
-        let scanTimeout;
-        
-        // Фільтрація інвентаря при зміні параметрів
-        $(".filter-control").on("change", function() {
-            $("#filterForm").submit();
-        });
-        
-        // Скидання фільтрів
-        $("#resetFilters").on("click", function() {
-            $(".filter-control").each(function() {
-                if ($(this).is("select")) {
-                    $(this).val("");
-                } else {
-                    $(this).val("");
-                }
-            });
-            $("#filterForm").submit();
-        });
-        
-        // Функція для швидкого коригування кількості
-        $(document).on("click", ".quick-adjust", function() {
-            const productId = $(this).data("product-id");
-            const productName = $(this).data("product-name");
-            
-            $("#adjustProductId").val(productId);
-            $("#adjustProductName").text(productName);
-            $("#adjustQuantityModal").modal("show");
-        });
-        
-        // Обробка вводу штрихкоду
-        $("#barcodeInput").on("keypress", function(e) {
-            if (e.which === 13) { // Enter
-                e.preventDefault();
-                searchByBarcode();
-            }
-        });
-        
-        // Кнопка пошуку по штрихкоду
-        $("#searchBarcodeBtn").on("click", function() {
-            searchByBarcode();
-        });
-        
-        // Очищення результату пошуку
-        $("#clearSearchBtn").on("click", function() {
-            clearBarcodeSearch();
-        });
-        
-        // Швидке сканування (плаваюча кнопка)
-        $("#quickScanBtn").on("click", function() {
-            $("#barcodeInput").focus();
-            $("#barcodeInput").select();
-        });
-        
-        // Автоматичне сканування зі сканера штрихкодів
-        $(document).on("keydown", function(e) {
-            // Якщо фокус не на input полі і натиснута цифра або Enter
-            if (!$(e.target).is("input, textarea, select") && 
-                ((e.which >= 48 && e.which <= 57) || // 0-9
-                 (e.which >= 96 && e.which <= 105) || // Numpad 0-9
-                 e.which === 13)) { // Enter
-                
-                if (e.which === 13 && scanBuffer.length > 0) {
-                    // Enter - завершити сканування
-                    $("#barcodeInput").val(scanBuffer);
-                    searchByBarcode();
-                    scanBuffer = "";
-                } else if (e.which !== 13) {
-                    // Додати цифру до буфера
-                    scanBuffer += String.fromCharCode(e.which);
-                    
-                    // Очистити буфер через 100ms якщо нічого не вводиться
-                    clearTimeout(scanTimeout);
-                    scanTimeout = setTimeout(function() {
-                        scanBuffer = "";
-                    }, 100);
-                }
-            }
-        });
-        
-        // Функція пошуку товару по штрихкоду
-        function searchByBarcode() {
-            const barcode = $("#barcodeInput").val().trim();
-            
-            if (!barcode) {
-                showScannerStatus("Введіть штрихкод для пошуку", "error");
-                return;
-            }
-            
-            // Показати індикатор завантаження
-            $("#searchBarcodeBtn").prop("disabled", true).html("<i class=\"fas fa-spinner fa-spin\"></i> Пошук...");
-            
-            // AJAX запит для пошуку товару
-            $.ajax({
-                url: "' . base_url('warehouse/searchByBarcode') . '",
-                method: "POST",
-                data: {
-                    barcode: barcode
-                },
-                dataType: "json",
-                success: function(response) {
-                    console.log("Response:", response); // Для відладки
-                    
-                    if (response.success) {
-                        displayFoundProduct(response.product);
-                        showScannerStatus("Товар знайдено!", "success");
-                        
-                        // Прокрутити до знайденого товару в таблиці
-                        scrollToProductInTable(response.product.id);
-                    } else {
-                        showScannerStatus(response.error || "Товар не знайдено", "error");
-                        clearFoundProduct();
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error("AJAX Error:", xhr.responseText); // Для відладки
-                    
-                    let errorMessage = "Помилка при пошуку товару";
-                    
-                    // Спроба витягнути повідомлення про помилку з відповіді
-                    try {
-                        const errorResponse = JSON.parse(xhr.responseText);
-                        if (errorResponse.error) {
-                            errorMessage = errorResponse.error;
-                        }
-                    } catch (e) {
-                        // Якщо не вдалося розпарсити JSON, використовуємо стандартне повідомлення
-                    }
-                    
-                    showScannerStatus(errorMessage, "error");
-                    clearFoundProduct();
-                },
-                complete: function() {
-                    $("#searchBarcodeBtn").prop("disabled", false).html("<i class=\"fas fa-search\"></i> Знайти");
-                }
-            });
-        }
-        
-        // Відображення знайденого товару
-        function displayFoundProduct(product) {
-            const productHtml = `
-                <div class="row align-items-center">
-                    <div class="col-md-2">
-                        <img src="${product.image}" alt="${product.name}" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: cover;">
-                    </div>
-                    <div class="col-md-6">
-                        <h5 class="mb-1">${product.name}</h5>
-                        <p class="mb-1">Штрихкод: <span class="product-barcode">${product.barcode}</span></p>
-                        <small class="text-muted">Категорія: ${product.category_name}</small>
-                    </div>
-                    <div class="col-md-2">
-                        <strong>Ціна: ${parseFloat(product.price).toFixed(2)} грн</strong>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="text-center">
-                            <span class="badge bg-primary fs-6">Залишок: ${product.stock_quantity}</span>
-                            <div class="mt-2">
-                                <button type="button" class="btn btn-success btn-sm quick-adjust" 
-                                        data-product-id="${product.id}" data-product-name="${product.name}">
-                                    <i class="fas fa-edit"></i> Коригувати
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            $("#foundProduct").html(productHtml).show();
-        }
-        
-        // Очищення результату пошуку
-        function clearFoundProduct() {
-            $("#foundProduct").hide().empty();
-        }
-        
-        // Очищення всього пошуку
-        function clearBarcodeSearch() {
-            $("#barcodeInput").val("");
-            clearFoundProduct();
-            $("#scannerStatus").hide();
-        }
-        
-        // Показ статусу сканера
-        function showScannerStatus(message, type) {
-            $("#scannerStatus")
-                .removeClass("success error")
-                .addClass(type)
-                .text(message)
-                .show();
-            
-            // Автоматично сховати через 3 секунди
-            setTimeout(function() {
-                $("#scannerStatus").fadeOut();
-            }, 3000);
-        }
-        
-        // Прокрутка до товару в таблиці
-        function scrollToProductInTable(productId) {
-            const $row = $(`.inventory-table tbody tr`).filter(function() {
-                return $(this).find("td:first").text().trim() == productId;
-            });
-            
-            if ($row.length > 0) {
-                // Підсвітити рядок
-                $row.addClass("table-warning");
-                
-                // Прокрутити до рядка
-                $("html, body").animate({
-                    scrollTop: $row.offset().top - 100
-                }, 1000);
-                
-                // Прибрати підсвічування через 3 секунди
-                setTimeout(function() {
-                    $row.removeClass("table-warning");
-                }, 3000);
-            }
-        }
-        
-        // Генерація штрихкоду для існуючих товарів
-        $(".generate-barcode").each(function() {
-            const productId = $(this).data("product-id");
-            const barcode = String(productId).padStart(8, "0");
-            $(this).text(barcode);
-        });
-        
-        // Фокус на поле штрихкоду при завантаженні сторінки
-        $("#barcodeInput").focus();
-    });
-</script>';
 ?>
 
 <div class="row mb-4">
@@ -382,32 +147,71 @@ $extra_js = '
                 <h5 class="m-0"><i class="fas fa-barcode me-2"></i>Пошук по штрихкоду</h5>
             </div>
             <div class="card-body">
-                <div class="scanner-status" id="scannerStatus"></div>
-                
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-barcode"></i></span>
-                            <input type="text" class="form-control barcode-input" id="barcodeInput" 
-                                   placeholder="Відскануйте або введіть штрихкод (8 цифр)" maxlength="8">
-                            <button type="button" class="btn btn-primary" id="searchBarcodeBtn">
-                                <i class="fas fa-search"></i> Знайти
-                            </button>
+                <!-- Форма поиска через GET -->
+                <form action="<?= base_url('warehouse/inventory') ?>" method="GET">
+                    <input type="hidden" name="search_barcode" value="1">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                                <input type="text" class="form-control" name="barcode" 
+                                       placeholder="Введіть штрихкод (ID товару)" 
+                                       value="<?= $_GET['barcode'] ?? '' ?>" autofocus>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Знайти
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                Штрихкод = ID товару. Наприклад: товар #123 = штрихкод 123
+                            </small>
                         </div>
-                        <small class="form-text text-muted">
-                            <i class="fas fa-info-circle"></i> 
-                            Штрихкод формується з ID товару (8 цифр). Приклад: товар #123 = штрихкод 00000123
-                        </small>
+                        <div class="col-md-4 text-end">
+                            <a href="<?= base_url('warehouse/inventory') ?>" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Очистити
+                            </a>
+                        </div>
                     </div>
-                    <div class="col-md-4 text-end">
-                        <button type="button" class="btn btn-outline-secondary" id="clearSearchBtn">
-                            <i class="fas fa-times"></i> Очистити
-                        </button>
-                    </div>
-                </div>
+                </form>
                 
-                <!-- Результат пошуку -->
-                <div class="found-product mt-3" id="foundProduct" style="display: none;"></div>
+                <!-- Ошибка поиска -->
+                <?php if (!empty($searchError)): ?>
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i><?= $searchError ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Результат поиска -->
+                <?php if (!empty($foundProduct)): ?>
+                    <div class="alert-success mt-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <img src="<?= $foundProduct['image'] ? upload_url($foundProduct['image']) : asset_url('images/no-image.jpg') ?>" 
+                                     alt="<?= $foundProduct['name'] ?>" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: cover;">
+                            </div>
+                            <div class="col-md-6">
+                                <h5 class="mb-1"><?= $foundProduct['name'] ?></h5>
+                                <p class="mb-1">Штрихкод: <strong><?= $foundProduct['barcode'] ?></strong></p>
+                                <small class="text-muted">Категорія: <?= $foundProduct['category_name'] ?></small>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>Ціна: <?= number_format($foundProduct['price'], 2) ?> грн</strong>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <span class="badge bg-primary fs-6">Залишок: <?= $foundProduct['stock_quantity'] ?></span>
+                                    <div class="mt-2">
+                                        <a href="<?= base_url('warehouse/add_movement?product_id=' . $foundProduct['id']) ?>" 
+                                           class="btn btn-success btn-sm">
+                                            <i class="fas fa-edit"></i> Додати рух
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -777,3 +581,68 @@ $extra_js = '
         <i class="fas fa-question"></i>
     </button>
 </div>
+<script>
+
+
+$(document).ready(function() {
+    // Фільтрація інвентаря при зміні параметрів
+    $(".filter-control").on("change", function() {
+        $("#filterForm").submit();
+    });
+    
+    // Скидання фільтрів
+    $("#resetFilters").on("click", function() {
+        $(".filter-control").each(function() {
+            if ($(this).is("select")) {
+                $(this).val("");
+            } else {
+                $(this).val("");
+            }
+        });
+        $("#filterForm").submit();
+    });
+    
+    // Функція для швидкого коригування кількості
+    $(document).on("click", ".quick-adjust", function() {
+        const productId = $(this).data("product-id");
+        const productName = $(this).data("product-name");
+        
+        $("#adjustProductId").val(productId);
+        $("#adjustProductName").text(productName);
+        $("#adjustQuantityModal").modal("show");
+    });
+    
+    // Генерація штрихкоду для існуючих товарів (простий показ ID)
+    $(".generate-barcode").each(function() {
+        const productId = $(this).data("product-id");
+        const barcode = String(productId).padStart(8, "0");
+        $(this).text(barcode);
+    });
+    
+    // Автофокус на поле поиска по штрихкоду
+    $('input[name="barcode"]').focus();
+    
+    // Прокрутка к найденному товару если он есть
+    <?php if (!empty($foundProduct)): ?>
+        const foundProductId = <?= $foundProduct['id'] ?>;
+        const $row = $(`.inventory-table tbody tr`).filter(function() {
+            return $(this).find("td:first").text().trim() == foundProductId;
+        });
+        
+        if ($row.length > 0) {
+            // Подсветить строку
+            $row.addClass("table-warning");
+            
+            // Прокрутить к строке
+            $("html, body").animate({
+                scrollTop: $row.offset().top - 100
+            }, 1000);
+            
+            // Убрать подсветку через 5 секунд
+            setTimeout(function() {
+                $row.removeClass("table-warning");
+            }, 5000);
+        }
+    <?php endif; ?>
+}); 
+</script>
