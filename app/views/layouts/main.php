@@ -25,6 +25,7 @@ $extra_js = $extra_js ?? '';
     
     <!-- Додаткові стилі -->
     <?= $extra_css ?>
+    <meta name="csrf-token" content="<?= $_SESSION[CSRF_TOKEN_NAME] ?? '' ?>">
 </head>
 <body>
     <!-- Верхнє меню -->
