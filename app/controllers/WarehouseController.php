@@ -50,9 +50,15 @@ class WarehouseController extends BaseController {
     }
     
     /**
-     * Сторінка інвентаризації
+     * Сторінка інвентаризації з підтримкою штрихкодів
      */
     public function inventory() {
+        // Обробка AJAX запиту для пошуку по штрихкоду
+        if ($this->isPost() && $this->input('action') === 'search_barcode') {
+            $this->searchByBarcode();
+            return;
+        }
+        
         // Отримання параметрів фільтрації та пагінації
         $page = intval($this->input('page', 1));
         
@@ -93,6 +99,422 @@ class WarehouseController extends BaseController {
         $this->data['title'] = 'Інвентаризація складу';
         
         $this->view('warehouse/inventory');
+    }
+    
+    /**
+     * Пошук товару по штрихкоду (AJAX)
+     */
+    private function searchByBarcode() {
+        header('Content-Type: application/json');
+        
+        $barcode = $this->input('barcode', '');
+        
+        if (empty($barcode)) {
+            echo json_encode(['error' => 'Штрихкод не вказано']);
+            exit;
+        }
+        
+        // Парсинг штрихкоду для отримання ID продукту
+        $productId = $this->parseBarcode($barcode);
+        
+        if (!$productId) {
+            echo json_encode(['error' => 'Некоректний штрихкод']);
+            exit;
+        }
+        
+        // Пошук продукту в базі даних
+        $product = $this->productModel->getById($productId);
+        
+        if (!$product) {
+            echo json_encode(['error' => 'Товар не знайдено']);
+            exit;
+        }
+        
+        // Отримання додаткової інформації про категорію
+        if ($product['category_id']) {
+            $category = $this->categoryModel->getById($product['category_id']);
+            $product['category_name'] = $category ? $category['name'] : '-';
+        } else {
+            $product['category_name'] = '-';
+        }
+        
+        // Формування відповіді
+        $response = [
+            'success' => true,
+            'product' => [
+                'id' => $product['id'],
+                'name' => $product['name'],
+                'barcode' => $this->generateBarcode($product['id']),
+                'price' => $product['price'],
+                'stock_quantity' => $product['stock_quantity'],
+                'category_name' => $product['category_name'],
+                'image' => $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg')
+            ]
+        ];
+        
+        echo json_encode($response);
+        exit;
+    }
+    
+    /**
+     * Генерація штрихкоду з ID продукту
+     */
+    private function generateBarcode($productId) {
+        return str_pad($productId, 8, '0', STR_PAD_LEFT);
+    }
+    
+    /**
+     * Парсинг штрихкоду для отримання ID продукту
+     */
+    private function parseBarcode($barcode) {
+        // Видаляємо всі нецифрові символи
+        $barcode = preg_replace('/[^0-9]/', '', $barcode);
+        
+        // Перевіряємо, чи є штрихкод
+        if (empty($barcode)) {
+            return null;
+        }
+        
+        // Якщо довжина менше 8 символів, доповнюємо нулями зліва
+        if (strlen($barcode) < 8) {
+            $barcode = str_pad($barcode, 8, '0', STR_PAD_LEFT);
+        }
+        
+        // Якщо довжина більше 8 символів, беремо останні 8
+        if (strlen($barcode) > 8) {
+            $barcode = substr($barcode, -8);
+        }
+        
+        // Повертаємо число без ведучих нулів
+        return intval($barcode);
+    }
+    
+    /**
+     * Валідація штрихкоду
+     */
+    private function validateBarcode($barcode) {
+        // Видаляємо пробіли та інші символи
+        $barcode = trim($barcode);
+        
+        // Перевіряємо, чи містить тільки цифри
+        if (!preg_match('/^[0-9]+$/', $barcode)) {
+            return false;
+        }
+        
+        // Перевіряємо довжину (від 1 до 8 цифр)
+        if (strlen($barcode) < 1 || strlen($barcode) > 8) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Отримання інформації про товар по штрихкоду (AJAX)
+     */
+    public function getProductByBarcode() {
+        // Перевірка методу запиту
+        if (!$this->isPost()) {
+            $this->json(['error' => 'Неправильний метод запиту'], 405);
+            return;
+        }
+        
+        $barcode = $this->input('barcode', '');
+        
+        if (empty($barcode)) {
+            $this->json(['error' => 'Штрихкод не вказано'], 400);
+            return;
+        }
+        
+        // Валідація штрихкоду
+        if (!$this->validateBarcode($barcode)) {
+            $this->json(['error' => 'Некоректний формат штрихкоду'], 400);
+            return;
+        }
+        
+        // Парсинг штрихкоду
+        $productId = $this->parseBarcode($barcode);
+        
+        if (!$productId) {
+            $this->json(['error' => 'Некоректний штрихкод'], 400);
+            return;
+        }
+        
+        // Пошук продукту
+        $product = $this->productModel->getById($productId);
+        
+        if (!$product) {
+            $this->json(['error' => 'Товар не знайдено'], 404);
+            return;
+        }
+        
+        // Отримання інформації про категорію
+        $category = null;
+        if ($product['category_id']) {
+            $category = $this->categoryModel->getById($product['category_id']);
+        }
+        
+        // Формування відповіді
+        $response = [
+            'success' => true,
+            'product' => [
+                'id' => $product['id'],
+                'name' => $product['name'],
+                'description' => $product['description'] ?? '',
+                'barcode' => $this->generateBarcode($product['id']),
+                'price' => floatval($product['price']),
+                'stock_quantity' => intval($product['stock_quantity']),
+                'category' => [
+                    'id' => $product['category_id'],
+                    'name' => $category ? $category['name'] : 'Без категорії'
+                ],
+                'image' => $product['image'] ? upload_url($product['image']) : asset_url('images/no-image.jpg'),
+                'created_at' => $product['created_at'],
+                'updated_at' => $product['updated_at']
+            ]
+        ];
+        
+        $this->json($response);
+    }
+    
+    /**
+     * Генерація штрихкодів для всіх товарів (утилітна функція)
+     */
+    public function generateBarcodesForAll() {
+        // Перевірка прав доступу (тільки адміністратор)
+        if (!has_role('admin')) {
+            $this->setFlash('error', 'У вас немає доступу до цієї функції');
+            $this->redirect('warehouse');
+            return;
+        }
+        
+        // Отримання всіх товарів
+        $products = $this->productModel->getAll();
+        
+        $barcodes = [];
+        
+        foreach ($products as $product) {
+            $barcodes[] = [
+                'id' => $product['id'],
+                'name' => $product['name'],
+                'barcode' => $this->generateBarcode($product['id'])
+            ];
+        }
+        
+        // Якщо це AJAX запит, повертаємо JSON
+        if ($this->isAjax()) {
+            $this->json([
+                'success' => true,
+                'barcodes' => $barcodes,
+                'count' => count($barcodes)
+            ]);
+            return;
+        }
+        
+        // Інакше відображаємо сторінку
+        $this->data['barcodes'] = $barcodes;
+        $this->data['title'] = 'Штрихкоди товарів';
+        
+        $this->view('warehouse/barcodes');
+    }
+    
+    /**
+     * Експорт штрихкодів у різних форматах
+     */
+    public function exportBarcodes() {
+        // Перевірка прав доступу
+        if (!has_role(['admin', 'warehouse_manager'])) {
+            $this->setFlash('error', 'У вас немає доступу до цієї функції');
+            $this->redirect('warehouse');
+            return;
+        }
+        
+        $format = $this->input('format', 'csv');
+        
+        // Отримання всіх товарів
+        $products = $this->productModel->getAll();
+        
+        $barcodeData = [];
+        
+        foreach ($products as $product) {
+            $barcodeData[] = [
+                'product_id' => $product['id'],
+                'product_name' => $product['name'],
+                'barcode' => $this->generateBarcode($product['id']),
+                'price' => $product['price'],
+                'stock_quantity' => $product['stock_quantity']
+            ];
+        }
+        
+        switch ($format) {
+            case 'csv':
+                $this->exportBarcodesAsCsv($barcodeData);
+                break;
+            case 'json':
+                $this->exportBarcodesAsJson($barcodeData);
+                break;
+            case 'txt':
+                $this->exportBarcodesAsText($barcodeData);
+                break;
+            default:
+                $this->setFlash('error', 'Непідтримуваний формат експорту');
+                $this->redirect('warehouse/inventory');
+        }
+    }
+    
+    /**
+     * Експорт штрихкодів у CSV
+     */
+    private function exportBarcodesAsCsv($data) {
+        // Встановлення заголовків
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="barcodes_' . date('Y-m-d') . '.csv"');
+        
+        // Створення файлового потоку
+        $output = fopen('php://output', 'w');
+        
+        // Додавання BOM для UTF-8
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Запис заголовків
+        fputcsv($output, ['ID товару', 'Назва товару', 'Штрихкод', 'Ціна', 'Кількість']);
+        
+        // Запис даних
+        foreach ($data as $row) {
+            fputcsv($output, [
+                $row['product_id'],
+                $row['product_name'],
+                $row['barcode'],
+                $row['price'],
+                $row['stock_quantity']
+            ]);
+        }
+        
+        fclose($output);
+        exit;
+    }
+    
+    /**
+     * Експорт штрихкодів у JSON
+     */
+    private function exportBarcodesAsJson($data) {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="barcodes_' . date('Y-m-d') . '.json"');
+        
+        echo json_encode([
+            'generated_at' => date('Y-m-d H:i:s'),
+            'total_products' => count($data),
+            'barcodes' => $data
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        
+        exit;
+    }
+    
+    /**
+     * Експорт штрихкодів у текстовий файл
+     */
+    private function exportBarcodesAsText($data) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Content-Disposition: attachment; filename="barcodes_' . date('Y-m-d') . '.txt"');
+        
+        echo "Штрихкоди товарів\n";
+        echo "Згенеровано: " . date('d.m.Y H:i:s') . "\n";
+        echo "Всього товарів: " . count($data) . "\n";
+        echo str_repeat("=", 50) . "\n\n";
+        
+        foreach ($data as $row) {
+            echo sprintf(
+                "ID: %s | Штрихкод: %s | %s\n",
+                str_pad($row['product_id'], 5, ' ', STR_PAD_LEFT),
+                $row['barcode'],
+                $row['product_name']
+            );
+        }
+        
+        exit;
+    }
+    
+    /**
+     * Пошук дублікатів штрихкодів (для перевірки целостності)
+     */
+    public function checkBarcodeDuplicates() {
+        // Перевірка прав доступу
+        if (!has_role('admin')) {
+            $this->json(['error' => 'Недостатньо прав'], 403);
+            return;
+        }
+        
+        // Отримання всіх товарів
+        $products = $this->productModel->getAll();
+        
+        $barcodes = [];
+        $duplicates = [];
+        
+        foreach ($products as $product) {
+            $barcode = $this->generateBarcode($product['id']);
+            
+            if (isset($barcodes[$barcode])) {
+                $duplicates[] = [
+                    'barcode' => $barcode,
+                    'products' => [$barcodes[$barcode], $product]
+                ];
+            } else {
+                $barcodes[$barcode] = $product;
+            }
+        }
+        
+        $this->json([
+            'success' => true,
+            'total_products' => count($products),
+            'unique_barcodes' => count($barcodes),
+            'duplicates' => $duplicates,
+            'has_duplicates' => !empty($duplicates)
+        ]);
+    }
+    
+    /**
+     * Отримання статистики використання штрихкодів
+     */
+    public function getBarcodeStats() {
+        // Перевірка прав доступу
+        if (!has_role(['admin', 'warehouse_manager'])) {
+            $this->json(['error' => 'Недостатньо прав'], 403);
+            return;
+        }
+        
+        // Отримання статистики по товарах
+        $totalProducts = $this->productModel->getCount();
+        
+        // Отримання товарів з низьким запасом
+        $lowStockProducts = $this->productModel->getLowStockProducts();
+        
+        // Отримання категорій з кількістю товарів
+        $categories = $this->categoryModel->getAllWithProductCount();
+        
+        // Формування статистики
+        $stats = [
+            'total_products' => $totalProducts,
+            'total_barcodes' => $totalProducts, // Кожен товар має штрихкод
+            'low_stock_products' => count($lowStockProducts),
+            'categories_count' => count($categories),
+            'barcode_format' => '8 цифр',
+            'sample_barcodes' => []
+        ];
+        
+        // Додавання прикладів штрихкодів
+        $sampleProducts = array_slice($this->productModel->getAll(), 0, 5);
+        foreach ($sampleProducts as $product) {
+            $stats['sample_barcodes'][] = [
+                'id' => $product['id'],
+                'name' => $product['name'],
+                'barcode' => $this->generateBarcode($product['id'])
+            ];
+        }
+        
+        $this->json([
+            'success' => true,
+            'stats' => $stats
+        ]);
     }
     
     /**
