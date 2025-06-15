@@ -87,6 +87,11 @@ $extra_js = $extra_js ?? '';
                                     <i class="fas fa-warehouse"></i> Склад
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= is_current_url('scada') ? 'active' : '' ?>" href="<?= base_url('scada') ?>">
+                                    <i class="fas fa-warehouse"></i> SCADA
+                                </a>
+                            </li>
                         <?php endif; ?>
                         <?php if (has_role(['admin'])): ?>
                             <li class="nav-item">

@@ -96,6 +96,7 @@ $router->post('products/store', 'ProductController', 'store', [RoleMiddleware::a
 $router->get('products/edit/{id}', 'ProductController', 'edit', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->post('products/update/{id}', 'ProductController', 'update', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->get('products/delete/{id}', 'ProductController', 'delete', [RoleMiddleware::allow(['admin'])]);
+$router->get('scada', 'ScadaController', 'index', [RoleMiddleware::allow(['admin'])]);
 $router->get('products/search', 'ProductController', 'search');
 
 // Категории
