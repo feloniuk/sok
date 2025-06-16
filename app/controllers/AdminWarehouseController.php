@@ -116,31 +116,51 @@ class AdminWarehouseController extends BaseController {
         $this->view('admin/warehouse/movements');
     }
     
-    /**
-     * Страница добавления движения товара
-     */
-    public function addMovement() {
-        // Получение продукта, если он указан в URL
-        $productId = $this->input('product_id');
-        $product = null;
+    public function movements2() {
+        // Получение параметров фильтрации и пагинации
+        $page = intval($this->input('page', 1));
         
-        if ($productId) {
-            $product = $this->productModel->getById($productId);
-        }
+        $filters = [
+            'product_id' => $this->input('product_id'),
+            'warehouse_id' => $this->input('warehouse_id'),
+            'movement_type' => $this->input('movement_type'),
+            'date_from' => $this->input('date_from'),
+            'date_to' => $this->input('date_to'),
+            'keyword' => $this->input('keyword')
+        ];
         
-        // Получение списка продуктов
+        // Получение движений товаров с деталями
+        $movementsData = $this->inventoryMovementModel->getWithDetails($filters, $page, ITEMS_PER_PAGE);
+        
+        // Получение продуктов для фильтра
         $products = $this->productModel->getAll();
         
-        // Получение списка складов
+        // Получение складов для фильтра
         $warehouses = $this->warehouseModel->getAll();
         
         // Передача данных в представление
-        $this->data['product'] = $product;
+        $this->data['movements'] = $movementsData['items'];
+        $this->data['pagination'] = [
+            'current_page' => $movementsData['current_page'],
+            'per_page' => $movementsData['per_page'],
+            'total_items' => $movementsData['total_items'],
+            'total_pages' => $movementsData['total_pages']
+        ];
         $this->data['products'] = $products;
         $this->data['warehouses'] = $warehouses;
-        $this->data['title'] = 'Додавання руху товару';
+        $this->data['filters'] = $filters;
+        $this->data['title'] = 'Рух товарів';
         
-        $this->view('admin/warehouse/add_movement');
+        $this->view('admin/warehouse/movements');
+    }
+    
+    /**
+     * Страница добавления движения товара
+     */
+    public function camera() {
+        $this->data['title'] = 'Відеонагляд';
+        
+        $this->view('admin/reports/camera');
     }
     
     /**

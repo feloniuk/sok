@@ -91,6 +91,7 @@ $router->get('dashboard/chart_data', 'DashboardController', 'getChartData', [new
 $router->get('products', 'ProductController', 'index');
 $router->get('products/get_product_json', 'ProductController', 'getProductJson');
 $router->get('products/view/{id}', 'ProductController', 'details');
+$router->get('camera', 'AdminWarehouseController', 'camera');
 $router->get('products/create', 'ProductController', 'create', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->post('products/store', 'ProductController', 'store', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
 $router->get('products/edit/{id}', 'ProductController', 'edit', [RoleMiddleware::allow(['admin', 'warehouse_manager'])]);
@@ -110,7 +111,6 @@ $router->get('categories/delete/{id}', 'CategoryController', 'delete', [RoleMidd
 
 // Заказы
 // In your router setup (typically in public/index.php or similar)
-
 $router->get('orders', 'OrderController', 'index', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);
 $router->get('orders/view/{id}', 'OrderController', 'details', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);
 $router->get('admin/orders/view/{id}', 'OrderController', 'details', [new RoleMiddleware(['admin', 'sales_manager', 'warehouse_manager', 'customer'])]);

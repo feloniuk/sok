@@ -99,6 +99,11 @@ $extra_js = $extra_js ?? '';
                                     <i class="fas fa-users"></i> Користувачі
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= is_current_url('camera') ? 'active' : '' ?>" href="<?= base_url('camera') ?>">
+                                    <i class="fas fa-users"></i> Відеонагляд
+                                </a>
+                            </li>
                         <?php endif; ?>
                         <?php if (has_role(['admin', 'sales_manager'])): ?>
                             <li class="nav-item">
