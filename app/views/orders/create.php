@@ -365,7 +365,7 @@ $(document).ready(function() {
                 const hasAvailableContainers = product.containers && product.containers.some(c => c.is_active && c.stock_quantity > 0);
                 
                 html += `
-                    <div class="product-card-mini ${!hasAvailableContainers ? 'opacity-50' : ''}" 
+                    <div class="product-card-mini ${!hasAvailableContainers ? 'opacity-50' : ''}"
                          ${hasAvailableContainers ? 'data-product-id="' + product.id + '"' : ''}
                          ${hasAvailableContainers ? 'data-product-name="' + product.name + '"' : ''}
                          ${hasAvailableContainers ? 'data-product-image="' + (product.image || '<?= asset_url('images/no-image.jpg') ?>') + '"' : ''}
@@ -422,7 +422,7 @@ $(document).ready(function() {
                 const pricePerLiter = (container.price / container.volume).toFixed(2);
                 const isBestValue = container.id === bestValueId;
                 
-                html += `
+                html += \`
                     <div class="container-selector ${isOutOfStock || isAlreadySelected ? 'out-of-stock' : ''}"
                          data-container-id="${container.id}"
                          data-price="${container.price}"
@@ -444,13 +444,13 @@ $(document).ready(function() {
                                     '<span class="text-warning"><i class="fas fa-check-circle me-1"></i>Вже додано</span>' :
                                     (isOutOfStock ? 
                                         '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Немає в наявності</span>' :
-                                        `<span class="text-success"><i class="fas fa-check-circle me-1"></i>Доступно: ${container.stock_quantity} шт.</span>`
+                                        '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Доступно: ${container.stock_quantity} шт.</span>'
                                     )
                                 }
                             </div>
                         </div>
                     </div>
-                `;
+                \`;
             });
         }
         
@@ -465,7 +465,7 @@ $(document).ready(function() {
         
         const pricePerLiter = (price / volume).toFixed(2);
         
-        const itemHtml = `
+        const itemHtml = \`
             <div class="order-item" data-container-id="${containerId}">
                 <input type="hidden" name="items[${itemCounter}][container_id]" value="${containerId}">
                 <input type="hidden" name="items[${itemCounter}][product_id]" value="${productId}">
@@ -509,7 +509,7 @@ $(document).ready(function() {
                     </div>
                 </div>
             </div>
-        `;
+        \`;
         
         $("#itemsContainer").append(itemHtml);
         itemCounter++;
