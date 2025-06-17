@@ -1,15 +1,11 @@
 <?php
-// app/models/ProductContainer.php - Модель для объемов тары продуктов
+// app/models/ProductContainer.php - Исправленная модель для объемов тары продуктов
 
-class ProductContainer
-{
-    private $db;
-    private $table = 'product_containers';
-
-    public function __construct($database = null)
-    {
-        $this->db = $database ?: Database::getInstance();
-    }
+class ProductContainer extends BaseModel {
+    protected $table = 'product_containers';
+    protected $fillable = [
+        'product_id', 'volume', 'price', 'stock_quantity', 'is_active'
+    ];
 
     /**
      * Получить все объемы тары для продукта
@@ -17,7 +13,7 @@ class ProductContainer
     public function getByProductId($productId)
     {
         $sql = "SELECT * FROM {$this->table} WHERE product_id = ? ORDER BY volume ASC";
-        return $this->db->fetchAll($sql, [$productId]);
+        return $this->db->getAll($sql, [$productId]);
     }
 
     /**
@@ -26,7 +22,7 @@ class ProductContainer
     public function getById($id)
     {
         $sql = "SELECT * FROM {$this->table} WHERE id = ?";
-        return $this->db->fetch($sql, [$id]);
+        return $this->db->getOne($sql, [$id]);
     }
 
     /**
@@ -34,16 +30,8 @@ class ProductContainer
      */
     public function create($data)
     {
-        $sql = "INSERT INTO {$this->table} (product_id, volume, price, stock_quantity, is_active, created_at) 
-                VALUES (?, ?, ?, ?, ?, NOW())";
-        
-        return $this->db->execute($sql, [
-            $data['product_id'],
-            $data['volume'],
-            $data['price'],
-            $data['stock_quantity'] ?? 0,
-            $data['is_active'] ?? 1
-        ]);
+        $data['created_at'] = date('Y-m-d H:i:s');
+        return parent::create($data);
     }
 
     /**
@@ -51,26 +39,8 @@ class ProductContainer
      */
     public function update($id, $data)
     {
-        $sql = "UPDATE {$this->table} 
-                SET volume = ?, price = ?, stock_quantity = ?, is_active = ?, updated_at = NOW() 
-                WHERE id = ?";
-        
-        return $this->db->execute($sql, [
-            $data['volume'],
-            $data['price'],
-            $data['stock_quantity'],
-            $data['is_active'] ?? 1,
-            $id
-        ]);
-    }
-
-    /**
-     * Удалить объем тары
-     */
-    public function delete($id)
-    {
-        $sql = "DELETE FROM {$this->table} WHERE id = ?";
-        return $this->db->execute($sql, [$id]);
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        return parent::update($id, $data);
     }
 
     /**
@@ -119,7 +89,7 @@ class ProductContainer
 
         $sql .= " ORDER BY p.name, pc.volume";
 
-        return $this->db->fetchAll($sql, $params);
+        return $this->db->getAll($sql, $params);
     }
 
     /**
@@ -130,13 +100,9 @@ class ProductContainer
         $operator = ($operation === 'subtract') ? '-' : '+';
         $sql = "UPDATE {$this->table} 
                 SET stock_quantity = stock_quantity {$operator} ?, updated_at = NOW() 
-                WHERE id = ? AND stock_quantity >= ?";
+                WHERE id = ?";
         
-        if ($operation === 'subtract') {
-            return $this->db->execute($sql, [$quantity, $containerId, $quantity]);
-        } else {
-            return $this->db->execute($sql, [$quantity, $containerId, 0]);
-        }
+        return $this->db->query($sql, [$quantity, $containerId]);
     }
 
     /**
@@ -147,7 +113,7 @@ class ProductContainer
         $sql = "SELECT * FROM {$this->table} 
                 WHERE product_id = ? AND is_active = 1 AND stock_quantity > 0 
                 ORDER BY volume ASC";
-        return $this->db->fetchAll($sql, [$productId]);
+        return $this->db->getAll($sql, [$productId]);
     }
 
     /**
@@ -157,7 +123,7 @@ class ProductContainer
     {
         $sql = "SELECT MIN(price) as min_price FROM {$this->table} 
                 WHERE product_id = ? AND is_active = 1";
-        $result = $this->db->fetch($sql, [$productId]);
+        $result = $this->db->getOne($sql, [$productId]);
         return $result['min_price'] ?? 0;
     }
 
@@ -167,9 +133,8 @@ class ProductContainer
     public function checkStock($containerId, $quantity)
     {
         $sql = "SELECT stock_quantity FROM {$this->table} WHERE id = ?";
-        $result = $this->db->fetch($sql, [$containerId]);
+        $result = $this->db->getOne($sql, [$containerId]);
         return ($result['stock_quantity'] ?? 0) >= $quantity;
     }
 }
-
 ?>

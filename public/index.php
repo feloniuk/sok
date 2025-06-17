@@ -1,6 +1,27 @@
 <?php
 // public/index.php - Точка входа в приложение
 
+// Полифил для str_starts_with() (PHP < 8.0)
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle) {
+        return strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+// Полифил для str_ends_with() (PHP < 8.0)
+if (!function_exists('str_ends_with')) {
+    function str_ends_with($haystack, $needle) {
+        return $needle === '' || substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
+// Полифил для str_contains() (PHP < 8.0)
+if (!function_exists('str_contains')) {
+    function str_contains($haystack, $needle) {
+        return strpos($haystack, $needle) !== false;
+    }
+}
+
 // Для отладки
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);

@@ -1,6 +1,50 @@
 <?php
-// app/views/products/view.php - Обновленный вид продукта с выбором объема тары
+// app/views/products/view.php - Исправленный вид продукта
 $title = $product['name'] ?? 'Деталі продукту';
+
+// Функция для определения класса бейджа наличия
+function getStockBadgeClass($quantity) {
+    if ($quantity > 10) {
+        return 'success';
+    } elseif ($quantity > 0) {
+        return 'warning';
+    } else {
+        return 'danger';
+    }
+}
+
+// Функция для определения лучшего предложения по цене за литр
+function getBestValueContainer($containers) {
+    if (empty($containers)) return null;
+    
+    $bestValue = null;
+    $bestPricePerLiter = PHP_FLOAT_MAX;
+    
+    foreach ($containers as $container) {
+        if ($container['is_active'] && $container['stock_quantity'] > 0) {
+            $pricePerLiter = $container['price'] / $container['volume'];
+            if ($pricePerLiter < $bestPricePerLiter) {
+                $bestPricePerLiter = $pricePerLiter;
+                $bestValue = $container['id'];
+            }
+        }
+    }
+    
+    return $bestValue;
+}
+
+$bestValueId = getBestValueContainer($containers ?? []);
+
+// Проверяем наличие контейнеров
+$hasAvailableContainers = false;
+if (!empty($containers)) {
+    foreach ($containers as $container) {
+        if ($container['is_active'] && $container['stock_quantity'] > 0) {
+            $hasAvailableContainers = true;
+            break;
+        }
+    }
+}
 
 // Подключение дополнительных CSS
 $extra_css = '
@@ -77,21 +121,10 @@ $extra_css = '
         font-weight: 500;
     }
     
-    .stock-high {
-        color: #28a745;
-    }
+    .stock-high { color: #28a745; }
+    .stock-medium { color: #ffc107; }
+    .stock-low { color: #dc3545; }
     
-    .stock-medium {
-        color: #ffc107;
-    }
-    
-    .stock-low {
-        color: #dc3545;
-    }
-    
-    .quantity-selector {
-        max-width: 120px;
-    }
     
     .best-value-badge {
         position: absolute;
@@ -137,20 +170,14 @@ $(document).ready(function() {
             return;
         }
         
-        // Убираем выделение с других контейнеров
         $(".container-selector").removeClass("selected");
-        
-        // Выделяем выбранный контейнер
         $(this).addClass("selected");
         
-        // Сохраняем выбранные данные
         selectedContainer = $(this).data("container-id");
         selectedPrice = parseFloat($(this).data("price"));
         
-        // Обновляем отображение цены
         updatePriceDisplay();
         
-        // Обновляем максимальное количество
         const maxQuantity = parseInt($(this).data("stock"));
         $("#quantity").attr("max", maxQuantity);
         
@@ -158,19 +185,14 @@ $(document).ready(function() {
             $("#quantity").val(maxQuantity);
         }
         
-        // Показываем кнопки действий
         $("#actionButtons").show();
-        
-        // Обновляем скрытое поле с ID контейнера
         $("#selectedContainerId").val(selectedContainer);
     });
     
-    // Изменение количества
     $("#quantity").on("input", function() {
         updatePriceDisplay();
     });
     
-    // Увеличение количества
     $("#increaseQty").on("click", function() {
         const input = $("#quantity");
         const current = parseInt(input.val());
@@ -182,7 +204,6 @@ $(document).ready(function() {
         }
     });
     
-    // Уменьшение количества
     $("#decreaseQty").on("click", function() {
         const input = $("#quantity");
         const current = parseInt(input.val());
@@ -193,7 +214,6 @@ $(document).ready(function() {
         }
     });
     
-    // Обновление отображения цены
     function updatePriceDisplay() {
         if (selectedContainer && selectedPrice) {
             const quantity = parseInt($("#quantity").val()) || 1;
@@ -204,7 +224,6 @@ $(document).ready(function() {
         }
     }
     
-    // Валидация формы заказа
     $("#orderForm").on("submit", function(e) {
         if (!selectedContainer) {
             e.preventDefault();
@@ -229,39 +248,6 @@ $(document).ready(function() {
     }
 });
 </script>';
-
-// Функция для определения класса бейджа наличия
-function getStockBadgeClass($quantity) {
-    if ($quantity > 10) {
-        return 'success';
-    } elseif ($quantity > 0) {
-        return 'warning';
-    } else {
-        return 'danger';
-    }
-}
-
-// Функция для определения лучшего предложения по цене за литр
-function getBestValueContainer($containers) {
-    if (empty($containers)) return null;
-    
-    $bestValue = null;
-    $bestPricePerLiter = PHP_FLOAT_MAX;
-    
-    foreach ($containers as $container) {
-        if ($container['is_active'] && $container['stock_quantity'] > 0) {
-            $pricePerLiter = $container['price'] / $container['volume'];
-            if ($pricePerLiter < $bestPricePerLiter) {
-                $bestPricePerLiter = $pricePerLiter;
-                $bestValue = $container['id'];
-            }
-        }
-    }
-    
-    return $bestValue;
-}
-
-$bestValueId = getBestValueContainer($containers ?? []);
 ?>
 
 <div class="row">
@@ -307,7 +293,7 @@ $bestValueId = getBestValueContainer($containers ?? []);
                 Оберіть об'єм тари:
             </h5>
             
-            <?php if (!empty($containers)): ?>
+            <?php if ($hasAvailableContainers): ?>
                 <?php foreach ($containers as $container): ?>
                     <div class="container-selector <?= $container['stock_quantity'] <= 0 ? 'out-of-stock' : '' ?>" 
                          data-container-id="<?= $container['id'] ?>" 
@@ -349,69 +335,98 @@ $bestValueId = getBestValueContainer($containers ?? []);
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     На жаль, цей продукт тимчасово недоступний.
                 </div>
+                
+                <!-- Показываем базовую информацию о продукте, если нет контейнеров -->
+                <div class="container-selector">
+                    <div class="volume-badge">1 л</div>
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="price-display"><?= number_format($product['price'], 2) ?> грн</div>
+                            <div class="price-per-liter">
+                                <?= number_format($product['price'], 2) ?> грн/л
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <?php if ($product['stock_quantity'] > 0): ?>
+                                <div class="stock-indicator stock-<?= $product['stock_quantity'] > 10 ? 'high' : ($product['stock_quantity'] > 5 ? 'medium' : 'low') ?>">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    В наявності: <?= $product['stock_quantity'] ?> шт.
+                                </div>
+                            <?php else: ?>
+                                <div class="stock-indicator stock-low">
+                                    <i class="fas fa-times-circle me-1"></i>
+                                    Немає в наявності
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
             <?php endif; ?>
         </div>
         
+        <!-- Остальная часть кода остается такой же... -->
         <!-- Выбор количества и кнопки действий -->
-        <div id="actionButtons" style="display: none;">
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <label for="quantity" class="form-label">Кількість:</label>
-                    <div class="input-group quantity-selector">
-                        <button class="btn btn-outline-secondary" type="button" id="decreaseQty">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <input type="number" class="form-control text-center" id="quantity" value="1" min="1">
-                        <button class="btn btn-outline-secondary" type="button" id="increaseQty">
-                            <i class="fas fa-plus"></i>
-                        </button>
+        <?php if ($hasAvailableContainers || $product['stock_quantity'] > 0): ?>
+            <div id="actionButtons" style="display: none;">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="quantity" class="form-label">Кількість:</label>
+                        <div class="input-group quantity-selector">
+                            <button class="btn btn-outline-secondary" type="button" id="decreaseQty">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" class="form-control text-center" id="quantity" value="1" min="1">
+                            <button class="btn btn-outline-secondary" type="button" id="increaseQty">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Загальна вартість:</label>
+                        <div class="price-display" id="totalPrice">0.00 грн</div>
+                        <div class="price-per-liter" id="unitPrice"></div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Загальна вартість:</label>
-                    <div class="price-display" id="totalPrice">0.00 грн</div>
-                    <div class="price-per-liter" id="unitPrice"></div>
-                </div>
-            </div>
-            
-            <div class="d-grid gap-2 mb-4">
-                <?php if (is_logged_in() && has_role('customer')): ?>
-                    <form id="orderForm" action="<?= base_url('orders/add_to_cart') ?>" method="POST">
-                        <?= csrf_field() ?>
-                        <input type="hidden" id="selectedContainerId" name="container_id" value="">
-                        <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
-                        <button type="submit" class="btn btn-success btn-lg">
-                            <i class="fas fa-cart-plus me-2"></i> Додати до кошика
-                        </button>
-                    </form>
-                    <a href="<?= base_url('orders/create?product_id=' . $product['id']) ?>" class="btn btn-primary btn-lg">
-                        <i class="fas fa-shopping-cart me-2"></i> Замовити зараз
-                    </a>
-                <?php elseif (!is_logged_in()): ?>
-                    <a href="<?= base_url('auth/login') ?>" class="btn btn-primary btn-lg">
-                        <i class="fas fa-sign-in-alt me-2"></i> Увійдіть, щоб замовити
-                    </a>
-                <?php endif; ?>
                 
-                <?php if (has_role(['admin', 'warehouse_manager'])): ?>
-                    <div class="btn-group">
-                        <a href="<?= base_url('products/edit/' . $product['id']) ?>" class="btn btn-warning">
-                            <i class="fas fa-edit me-1"></i> Редагувати
+                <div class="d-grid gap-2 mb-4">
+                    <?php if (is_logged_in() && has_role('customer')): ?>
+                        <form id="orderForm" action="<?= base_url('orders/add_to_cart') ?>" method="POST">
+                            <?= csrf_field() ?>
+                            <input type="hidden" id="selectedContainerId" name="container_id" value="">
+                            <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
+                            <button type="submit" class="btn btn-success btn-lg" style="    width: 100%;">
+                                <i class="fas fa-cart-plus me-2"></i> Додати до кошика
+                            </button>
+                        </form>
+                        <a href="<?= base_url('orders/create?product_id=' . $product['id']) ?>" class="btn btn-primary btn-lg">
+                            <i class="fas fa-shopping-cart me-2"></i> Замовити зараз
                         </a>
-                        
-                        <?php if (has_role('admin')): ?>
-                            <a href="<?= base_url('products/delete/' . $product['id']) ?>" class="btn btn-danger confirm-delete" data-item-name="товар '<?= $product['name'] ?>'">
-                                <i class="fas fa-trash me-1"></i> Видалити
+                    <?php elseif (!is_logged_in()): ?>
+                        <a href="<?= base_url('auth/login') ?>" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i> Увійдіть, щоб замовити
+                        </a>
+                    <?php endif; ?>
+                    
+                    <?php if (has_role(['admin', 'warehouse_manager'])): ?>
+                        <div class="btn-group">
+                            <a href="<?= base_url('products/edit/' . $product['id']) ?>" class="btn btn-warning">
+                                <i class="fas fa-edit me-1"></i> Редагувати
                             </a>
-                        <?php endif; ?>
-                        
-                        <a href="<?= base_url('warehouse/add_movement?product_id=' . $product['id']) ?>" class="btn btn-info">
-                            <i class="fas fa-boxes me-1"></i> Управління запасами
-                        </a>
-                    </div>
-                <?php endif; ?>
+                            
+                            <?php if (has_role('admin')): ?>
+                                <a href="<?= base_url('products/delete/' . $product['id']) ?>" class="btn btn-danger confirm-delete" data-item-name="товар '<?= $product['name'] ?>'">
+                                    <i class="fas fa-trash me-1"></i> Видалити
+                                </a>
+                            <?php endif; ?>
+                            
+                            <a href="<?= base_url('warehouse/add_movement?product_id=' . $product['id']) ?>" class="btn btn-info">
+                                <i class="fas fa-boxes me-1"></i> Управління запасами
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
-        </div>
+        <?php endif; ?>
         
         <!-- Информация о продукте -->
         <div class="card">
@@ -435,10 +450,14 @@ $bestValueId = getBestValueContainer($containers ?? []);
                         $availableVolumes = array_filter($containers ?? [], function($container) {
                             return $container['is_active'] && $container['stock_quantity'] > 0;
                         });
-                        $volumes = array_map(function($container) {
-                            return $container['volume'] . ' л';
-                        }, $availableVolumes);
-                        echo implode(', ', $volumes);
+                        if (!empty($availableVolumes)) {
+                            $volumes = array_map(function($container) {
+                                return $container['volume'] . ' л';
+                            }, $availableVolumes);
+                            echo implode(', ', $volumes);
+                        } else {
+                            echo '1 л (базовий)';
+                        }
                         ?>
                     </li>
                     <li>
@@ -473,7 +492,7 @@ $bestValueId = getBestValueContainer($containers ?? []);
                                 <div class="mt-auto">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="fw-bold text-primary">
-                                            від <?= number_format($relatedProduct['min_price'] ?? 0, 2) ?> грн.
+                                            від <?= number_format($relatedProduct['min_price'] ?? $relatedProduct['price'], 2) ?> грн.
                                         </span>
                                         <a href="<?= base_url('products/view/' . $relatedProduct['id']) ?>" class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-eye me-1"></i> Деталі

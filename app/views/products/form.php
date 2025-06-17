@@ -1,9 +1,9 @@
 <?php
-// app/views/products/form.php - Форма для створення/редагування продукту
+// app/views/products/form.php - Упрощенная рабочая версия
 $title = isset($product) ? 'Редагування продукту: ' . $product['name'] : 'Створення нового продукту';
 $actionUrl = isset($product) ? base_url('products/update/' . $product['id']) : base_url('products/store');
 
-// Підключення додаткових CSS
+// Дополнительные CSS стили
 $extra_css = '
 <style>
     .form-card {
@@ -20,11 +20,11 @@ $extra_css = '
     }
 </style>';
 
-// Підключення додаткових JS
+// Дополнительные JS скрипты
 $extra_js = '
 <script>
     $(document).ready(function() {
-        // Перегляд зображення перед завантаженням
+        // Предпросмотр изображения
         $("#image").on("change", function() {
             const file = this.files[0];
             if (file) {
@@ -37,7 +37,7 @@ $extra_js = '
             }
         });
         
-        // Форматування ціни
+        // Форматирование цены
         $("#price").on("input", function() {
             let value = $(this).val().replace(/[^0-9.]/g, "");
             if (value.split(".").length > 2) {
@@ -65,7 +65,7 @@ $extra_js = '
                     
                     <div class="row mb-3">
                         <div class="col-md-8">
-                            <!-- Назва -->
+                            <!-- Название -->
                             <div class="mb-3">
                                 <label for="name" class="form-label">Назва продукту <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control <?= has_error('name') ? 'is-invalid' : '' ?>" id="name" name="name" value="<?= old('name', $product['name'] ?? '') ?>" required>
@@ -74,7 +74,7 @@ $extra_js = '
                                 <?php endif; ?>
                             </div>
                             
-                            <!-- Категорія -->
+                            <!-- Категория -->
                             <div class="mb-3">
                                 <label for="category_id" class="form-label">Категорія</label>
                                 <select class="form-select <?= has_error('category_id') ? 'is-invalid' : '' ?>" id="category_id" name="category_id">
@@ -90,7 +90,7 @@ $extra_js = '
                                 <?php endif; ?>
                             </div>
                             
-                            <!-- Ціна -->
+                            <!-- Цена -->
                             <div class="mb-3">
                                 <label for="price" class="form-label">Ціна (грн) <span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -102,7 +102,7 @@ $extra_js = '
                                 </div>
                             </div>
                             
-                            <!-- Кількість на складі -->
+                            <!-- Количество на складе -->
                             <div class="mb-3">
                                 <label for="stock_quantity" class="form-label">Кількість на складі <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control <?= has_error('stock_quantity') ? 'is-invalid' : '' ?>" id="stock_quantity" name="stock_quantity" value="<?= old('stock_quantity', $product['stock_quantity'] ?? 0) ?>" min="0" required>
@@ -113,7 +113,7 @@ $extra_js = '
                         </div>
                         
                         <div class="col-md-4">
-                            <!-- Зображення -->
+                            <!-- Изображение -->
                             <div class="mb-3">
                                 <label for="image" class="form-label">Зображення</label>
                                 <input type="file" class="form-control <?= has_error('image') ? 'is-invalid' : '' ?>" id="image" name="image" accept="image/*">
@@ -123,7 +123,7 @@ $extra_js = '
                                 <div class="form-text">Рекомендований розмір: 800x600 пікселів. Максимальний розмір файлу: 5MB.</div>
                             </div>
                             
-                            <!-- Попередній перегляд зображення -->
+                            <!-- Предпросмотр изображения -->
                             <div class="text-center mt-3">
                                 <?php if (isset($product) && $product['image']): ?>
                                     <div id="currentImageContainer">
@@ -136,7 +136,7 @@ $extra_js = '
                         </div>
                     </div>
                     
-                    <!-- Опис -->
+                    <!-- Описание -->
                     <div class="mb-3">
                         <label for="description" class="form-label">Опис продукту</label>
                         <textarea class="form-control <?= has_error('description') ? 'is-invalid' : '' ?>" id="description" name="description" rows="5"><?= old('description', $product['description'] ?? '') ?></textarea>
@@ -147,7 +147,7 @@ $extra_js = '
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <!-- Акційний товар -->
+                            <!-- Акционный товар -->
                             <div class="form-check">
                                 <input type="checkbox" class="form-check-input" id="is_featured" name="is_featured" value="1" <?= old('is_featured', $product['is_featured'] ?? 0) == 1 ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="is_featured">Акційний товар</label>
@@ -155,13 +155,60 @@ $extra_js = '
                         </div>
                         
                         <div class="col-md-6">
-                            <!-- Активний товар -->
+                            <!-- Активный товар -->
                             <div class="form-check">
                                 <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1" <?= old('is_active', $product['is_active'] ?? 1) == 1 ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="is_active">Активний (відображається в каталозі)</label>
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Информация о контейнерах (если есть) -->
+                    <?php if (isset($product) && !empty($containers)): ?>
+                        <div class="card mb-4">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-wine-bottle me-2"></i>
+                                    Поточні об'єми тари
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Об'єм</th>
+                                                <th>Ціна</th>
+                                                <th>Кількість</th>
+                                                <th>Ціна за літр</th>
+                                                <th>Статус</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($containers as $container): ?>
+                                                <tr>
+                                                    <td><?= $container['volume'] ?> л</td>
+                                                    <td><?= number_format($container['price'], 2) ?> грн</td>
+                                                    <td><?= $container['stock_quantity'] ?> шт</td>
+                                                    <td><?= number_format($container['price'] / $container['volume'], 2) ?> грн/л</td>
+                                                    <td>
+                                                        <span class="badge bg-<?= $container['is_active'] ? 'success' : 'danger' ?>">
+                                                            <?= $container['is_active'] ? 'Активний' : 'Неактивний' ?>
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Увага!</strong> Для редагування об'ємів тари потрібно додатково налаштувати систему контейнерів.
+                                    Зараз відображається базова форма редагування.
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     
                     <div class="d-flex justify-content-between mt-4">
                         <a href="<?= base_url('products') ?>" class="btn btn-secondary">
