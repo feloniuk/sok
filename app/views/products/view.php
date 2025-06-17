@@ -1,5 +1,5 @@
 <?php
-// app/views/products/view.php - Исправленный вид продукта
+// app/views/products/view.php - Исправленная страница просмотра продукта
 $title = $product['name'] ?? 'Деталі продукту';
 
 // Функция для определения класса бейджа наличия
@@ -125,7 +125,6 @@ $extra_css = '
     .stock-medium { color: #ffc107; }
     .stock-low { color: #dc3545; }
     
-    
     .best-value-badge {
         position: absolute;
         top: -8px;
@@ -155,6 +154,14 @@ $extra_css = '
         height: 160px;
         object-fit: cover;
     }
+    
+    .order-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 20px;
+        margin-top: 20px;
+    }
 </style>';
 
 // Дополнительные JS скрипты
@@ -163,6 +170,7 @@ $extra_js = '
 $(document).ready(function() {
     let selectedContainer = null;
     let selectedPrice = 0;
+    let selectedVolume = 0;
     
     // Выбор объема тары
     $(".container-selector").on("click", function() {
@@ -175,6 +183,7 @@ $(document).ready(function() {
         
         selectedContainer = $(this).data("container-id");
         selectedPrice = parseFloat($(this).data("price"));
+        selectedVolume = parseFloat($(this).data("volume"));
         
         updatePriceDisplay();
         
@@ -186,7 +195,11 @@ $(document).ready(function() {
         }
         
         $("#actionButtons").show();
+        
+        // Обновляем скрытые поля для передачи в заказ
         $("#selectedContainerId").val(selectedContainer);
+        $("#selectedPrice").val(selectedPrice);
+        $("#selectedVolume").val(selectedVolume);
     });
     
     $("#quantity").on("input", function() {
@@ -218,13 +231,16 @@ $(document).ready(function() {
         if (selectedContainer && selectedPrice) {
             const quantity = parseInt($("#quantity").val()) || 1;
             const totalPrice = (selectedPrice * quantity).toFixed(2);
+            const totalVolume = (selectedVolume * quantity).toFixed(2);
             
             $("#totalPrice").text(totalPrice + " грн");
-            $("#unitPrice").text("(" + selectedPrice.toFixed(2) + " грн за одиницю)");
+            $("#unitPrice").text("(" + selectedPrice.toFixed(2) + " грн за " + selectedVolume + " л)");
+            $("#totalVolume").text("Загальний об\'єм: " + totalVolume + " л");
         }
     }
     
-    $("#orderForm").on("submit", function(e) {
+    // Обработка формы "Добавить в корзину"
+    $("#addToCartForm").on("submit", function(e) {
         if (!selectedContainer) {
             e.preventDefault();
             alert("Будь ласка, оберіть об\'єм тари");
@@ -239,6 +255,31 @@ $(document).ready(function() {
         }
         
         return true;
+    });
+    
+    // Обработка ссылки "Заказать сейчас"
+    $("#orderNowBtn").on("click", function(e) {
+        if (!selectedContainer) {
+            e.preventDefault();
+            alert("Будь ласка, оберіть об\'єм тари");
+            return false;
+        }
+        
+        const quantity = parseInt($("#quantity").val());
+        if (!quantity || quantity < 1) {
+            e.preventDefault();
+            alert("Будь ласка, вкажіть кількість");
+            return false;
+        }
+        
+        // Перенаправляем на создание заказа с параметрами
+        const url = "' . base_url('orders/create') . '?" + 
+                   "container_id=" + selectedContainer + 
+                   "&quantity=" + quantity +
+                   "&product_id=" + "' . $product['id'] . '";
+        window.location.href = url;
+        
+        return false;
     });
     
     // Автоматический выбор первого доступного контейнера
@@ -335,38 +376,11 @@ $(document).ready(function() {
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     На жаль, цей продукт тимчасово недоступний.
                 </div>
-                
-                <!-- Показываем базовую информацию о продукте, если нет контейнеров -->
-                <div class="container-selector">
-                    <div class="volume-badge">1 л</div>
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <div class="price-display"><?= number_format($product['price'], 2) ?> грн</div>
-                            <div class="price-per-liter">
-                                <?= number_format($product['price'], 2) ?> грн/л
-                            </div>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <?php if ($product['stock_quantity'] > 0): ?>
-                                <div class="stock-indicator stock-<?= $product['stock_quantity'] > 10 ? 'high' : ($product['stock_quantity'] > 5 ? 'medium' : 'low') ?>">
-                                    <i class="fas fa-check-circle me-1"></i>
-                                    В наявності: <?= $product['stock_quantity'] ?> шт.
-                                </div>
-                            <?php else: ?>
-                                <div class="stock-indicator stock-low">
-                                    <i class="fas fa-times-circle me-1"></i>
-                                    Немає в наявності
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
             <?php endif; ?>
         </div>
         
-        <!-- Остальная часть кода остается такой же... -->
         <!-- Выбор количества и кнопки действий -->
-        <?php if ($hasAvailableContainers || $product['stock_quantity'] > 0): ?>
+        <?php if ($hasAvailableContainers): ?>
             <div id="actionButtons" style="display: none;">
                 <div class="row mb-4">
                     <div class="col-md-6">
@@ -385,24 +399,31 @@ $(document).ready(function() {
                         <label class="form-label">Загальна вартість:</label>
                         <div class="price-display" id="totalPrice">0.00 грн</div>
                         <div class="price-per-liter" id="unitPrice"></div>
+                        <div class="price-per-liter" id="totalVolume"></div>
                     </div>
                 </div>
                 
                 <div class="d-grid gap-2 mb-4">
                     <?php if (is_logged_in() && has_role('customer')): ?>
-                        <form id="orderForm" action="<?= base_url('orders/add_to_cart') ?>" method="POST">
+                        <!-- Форма добавления в корзину (если будет корзина) -->
+                        <form id="addToCartForm" action="<?= base_url('cart/add') ?>" method="POST" style="display: none;">
                             <?= csrf_field() ?>
-                            <input type="hidden" id="selectedContainerId" name="container_id" value="">
                             <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
-                            <button type="submit" class="btn btn-success btn-lg" style="    width: 100%;">
+                            <input type="hidden" id="selectedContainerId" name="container_id" value="">
+                            <input type="hidden" id="selectedPrice" name="price" value="">
+                            <input type="hidden" id="selectedVolume" name="volume" value="">
+                            <input type="hidden" name="quantity" id="cartQuantity" value="1">
+                            <button type="submit" class="btn btn-success btn-lg w-100">
                                 <i class="fas fa-cart-plus me-2"></i> Додати до кошика
                             </button>
                         </form>
-                        <a href="<?= base_url('orders/create?product_id=' . $product['id']) ?>" class="btn btn-primary btn-lg">
+                        
+                        <!-- Кнопка заказа сейчас -->
+                        <button type="button" id="orderNowBtn" class="btn btn-primary btn-lg w-100">
                             <i class="fas fa-shopping-cart me-2"></i> Замовити зараз
-                        </a>
+                        </button>
                     <?php elseif (!is_logged_in()): ?>
-                        <a href="<?= base_url('auth/login') ?>" class="btn btn-primary btn-lg">
+                        <a href="<?= base_url('auth/login') ?>" class="btn btn-primary btn-lg w-100">
                             <i class="fas fa-sign-in-alt me-2"></i> Увійдіть, щоб замовити
                         </a>
                     <?php endif; ?>

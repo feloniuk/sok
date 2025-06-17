@@ -1,8 +1,8 @@
 <?php
-// app/views/orders/view.php - Сторінка перегляду замовлення
+// app/views/orders/view.php - Обновленная страница просмотра заказа с поддержкой контейнеров
 $title = 'Замовлення №' . $order['order_number'];
 
-// Функції для форматування
+// Функции для форматирования
 function getStatusName($status) {
     $statusNames = [
         'pending' => 'Очікує обробки',
@@ -34,7 +34,7 @@ function getPaymentMethodName($method) {
     return $methodNames[$method] ?? $method;
 }
 
-// Підключення додаткових CSS
+// Подключение дополнительных CSS
 $extra_css = '
 <style>
     .order-status-timeline {
@@ -116,6 +116,50 @@ $extra_css = '
         object-fit: cover;
         border-radius: 4px;
     }
+    
+    .container-info {
+        background-color: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+    
+    .volume-badge {
+        background: #007bff;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin-right: 8px;
+    }
+    
+    .price-per-liter {
+        color: #6c757d;
+        font-size: 0.8rem;
+    }
+    
+    .order-summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem;
+    }
+    
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .summary-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
 </style>';
 ?>
 
@@ -161,7 +205,7 @@ $extra_css = '
     </div>
 </div>
 
-<!-- Статусна шкала -->
+<!-- Шкала статусов -->
 <?php if ($order['status'] != 'cancelled'): ?>
 <div class="row mb-4">
     <div class="col-md-12">
@@ -230,7 +274,7 @@ $extra_css = '
 <?php endif; ?>
 
 <div class="row">
-    <!-- Інформація про замовлення -->
+    <!-- Информация о заказе -->
     <div class="col-md-4 mb-4">
         <div class="card order-detail-card h-100">
             <div class="card-header bg-primary text-white">
@@ -263,53 +307,132 @@ $extra_css = '
         </div>
     </div>
     
-    <!-- Товари в замовленні -->
-    <div class="col-md-8 mb-4">
+    <!-- Товары в заказе -->
+    <div class="col-md-5 mb-4">
         <div class="card order-detail-card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Товари</h5>
+                <h5 class="mb-0">Товари в замовленні</h5>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th style="width: 60px;"></th>
-                                <th>Назва</th>
-                                <th class="text-center">Кількість</th>
-                                <th class="text-end">Ціна</th>
-                                <th class="text-end">Сума</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($orderItems as $item): ?>
-                                <tr class="product-row">
-                                    <td>
-                                        <img src="<?= $item['image'] ? upload_url($item['image']) : asset_url('images/no-image.jpg') ?>" alt="<?= $item['product_name'] ?>" class="product-image">
-                                    </td>
-                                    <td>
-                                        <a href="<?= base_url('products/view/' . $item['product_id']) ?>"><?= $item['product_name'] ?></a>
-                                    </td>
-                                    <td class="text-center"><?= $item['quantity'] ?></td>
-                                    <td class="text-end"><?= number_format($item['price'], 2) ?> грн</td>
-                                    <td class="text-end"><?= number_format($item['price'] * $item['quantity'], 2) ?> грн</td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                        <tfoot>
-                            <tr class="fw-bold">
-                                <td colspan="4" class="text-end">Загальна сума:</td>
-                                <td class="text-end"><?= number_format($order['total_amount'], 2) ?> грн</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                <?php foreach ($orderItems as $item): ?>
+                    <div class="product-row mb-3 pb-3 <?= !end($orderItems) || array_search($item, $orderItems) !== count($orderItems) - 1 ? 'border-bottom' : '' ?>">
+                        <div class="d-flex">
+                            <img src="<?= $item['image'] ? upload_url($item['image']) : asset_url('images/no-image.jpg') ?>" 
+                                 alt="<?= $item['display_name'] ?>" 
+                                 class="product-image me-3">
+                            
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">
+                                    <a href="<?= base_url('products/view/' . $item['product_id']) ?>" class="text-decoration-none">
+                                        <?= $item['product_name'] ?>
+                                    </a>
+                                </h6>
+                                
+                                <?php if (!empty($item['container_id'])): ?>
+                                    <div class="container-info">
+                                        <span class="volume-badge"><?= $item['volume'] ?> л</span>
+                                        <span class="price-per-liter">
+                                            <?= number_format($item['price_per_liter'], 2) ?> грн/л
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <div>
+                                        <span class="fw-bold"><?= number_format($item['price'], 2) ?> грн</span>
+                                        <span class="text-muted">× <?= $item['quantity'] ?></span>
+                                    </div>
+                                    <div class="text-end">
+                                        <strong><?= number_format($item['price'] * $item['quantity'], 2) ?> грн</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>
+    
+    <!-- Сводка заказа -->
+    <div class="col-md-3 mb-4">
+        <div class="card order-summary-card text-white">
+            <div class="card-header border-0">
+                <h5 class="mb-0">Підсумок замовлення</h5>
+            </div>
+            <div class="card-body">
+                <?php
+                // Получаем статистику заказа
+                $orderItemModel = new OrderItem();
+                $orderStats = $orderItemModel->getOrderVolumeStats($order['id']);
+                ?>
+                
+                <div class="summary-item">
+                    <span>Кількість товарів:</span>
+                    <span><?= $orderStats['total_items'] ?? 0 ?> шт.</span>
+                </div>
+                
+                <div class="summary-item">
+                    <span>Унікальних продуктів:</span>
+                    <span><?= $orderStats['unique_products'] ?? 0 ?></span>
+                </div>
+                
+                <div class="summary-item">
+                    <span>Загальний об'єм:</span>
+                    <span><?= number_format($orderStats['total_volume'] ?? 0, 2) ?> л</span>
+                </div>
+                
+                <div class="summary-item">
+                    <span>Середня ціна за літр:</span>
+                    <span><?= number_format($orderStats['avg_price_per_liter'] ?? 0, 2) ?> грн/л</span>
+                </div>
+                
+                <div class="summary-item">
+                    <span>Загальна сума:</span>
+                    <span><?= number_format($order['total_amount'], 2) ?> грн</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Рекомендации -->
+        <?php if (has_role(['admin', 'sales_manager'])): ?>
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">Рекомендації</h6>
+            </div>
+            <div class="card-body">
+                <?php
+                $avgPricePerLiter = $orderStats['avg_price_per_liter'] ?? 0;
+                $totalVolume = $orderStats['total_volume'] ?? 0;
+                ?>
+                
+                <?php if ($avgPricePerLiter > 50): ?>
+                    <div class="alert alert-warning p-2 mb-2">
+                        <small><i class="fas fa-exclamation-triangle me-1"></i> 
+                        Висока ціна за літр. Запропонуйте більші об'єми.</small>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($totalVolume < 5): ?>
+                    <div class="alert alert-info p-2 mb-2">
+                        <small><i class="fas fa-info-circle me-1"></i> 
+                        Малий об'єм замовлення. Можна запропонувати знижку при збільшенні.</small>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($order['total_amount'] > 1000): ?>
+                    <div class="alert alert-success p-2">
+                        <small><i class="fas fa-star me-1"></i> 
+                        Великий чек! Розгляньте можливість бонусу.</small>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
 </div>
 
-<!-- Історія змін -->
+<!-- История изменений -->
 <?php if (has_role(['admin', 'sales_manager'])): ?>
 <div class="row">
     <div class="col-md-12 mb-4">
@@ -339,8 +462,6 @@ $extra_css = '
                             </div>
                         </li>
                     <?php endif; ?>
-                    
-                    <!-- Тут можна додати додаткові записи історії з бази даних, якщо ведеться журнал змін -->
                 </ul>
             </div>
         </div>
@@ -348,7 +469,7 @@ $extra_css = '
 </div>
 <?php endif; ?>
 
-<!-- Кнопки дій -->
+<!-- Кнопки действий -->
 <div class="row">
     <div class="col-md-12 mb-4">
         <div class="d-flex justify-content-between">
