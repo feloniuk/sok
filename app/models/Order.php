@@ -15,79 +15,81 @@ class Order extends BaseModel {
      * @param array $items
      * @return int|bool
      */
-    public function createWithItems($orderData, $items) {
+    public function createWithItems($orderData, $orderItems) {
         try {
-            // Проверяем, есть ли уже активная транзакция
-            $inTransaction = $this->db->inTransaction();
-            
-            // Начинаем транзакцию только если она еще не начата
-            if (!$inTransaction) {
-                $this->db->beginTransaction();
-            }
+            // Начинаем транзакцию
+            $this->db->beginTransaction();
             
             // Генерация номера заказа
-            if (empty($orderData['order_number'])) {
-                $orderData['order_number'] = $this->generateOrderNumber();
-            }
+            $orderData['order_number'] = $this->generateOrderNumber();
             
             // Создание заказа
-            $orderId = parent::create($orderData);
+            $orderId = $this->create($orderData);
             
             if (!$orderId) {
-                throw new Exception('Ошибка при создании заказа');
+                throw new Exception('Ошибка создания заказа');
             }
             
-            // Добавление товаров в заказ
-            $orderItemModel = new OrderItem();
-            
-            foreach ($items as $item) {
-                $item['order_id'] = $orderId;
-                $orderItemId = $orderItemModel->create($item);
+            // Добавление товаров к заказу
+            foreach ($orderItems as $item) {
+                $itemData = [
+                    'order_id' => $orderId,
+                    'product_id' => $item['product_id'],
+                    'container_id' => $item['container_id'] ?? null,
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'volume' => $item['volume'] ?? 1,
+                    'warehouse_id' => $item['warehouse_id'] ?? 1
+                ];
                 
-                if (!$orderItemId) {
-                    throw new Exception('Ошибка при добавлении товара в заказ');
+                $sql = 'INSERT INTO order_items (order_id, product_id, container_id, quantity, price, volume, warehouse_id) 
+                        VALUES (:order_id, :product_id, :container_id, :quantity, :price, :volume, :warehouse_id)';
+                
+                if (!$this->db->query($sql, $itemData)) {
+                    throw new Exception('Ошибка добавления товара к заказу');
                 }
                 
-                // Обновление количества товара на складе
-                $productModel = new Product();
-                $productModel->updateStock($item['product_id'], -$item['quantity']);
+                // Если используется контейнер, НЕ обновляем основную таблицу products
+                // Обновление stock_quantity в product_containers происходит отдельно
+                if (empty($item['container_id'])) {
+                    // Только если НЕ используется контейнер, обновляем основную таблицу
+                    $productModel = new Product();
+                    if (!$productModel->updateStock($item['product_id'], -$item['quantity'])) {
+                        throw new Exception('Ошибка обновления остатков товара');
+                    }
+                }
                 
-                // Запись движения товара
+                // Создание записи о движении товара
                 $inventoryMovementModel = new InventoryMovement();
                 $movementData = [
                     'product_id' => $item['product_id'],
-                    'warehouse_id' => $item['warehouse_id'] ?? 1, // Предполагаем, что есть основной склад
+                    'warehouse_id' => $item['warehouse_id'],
                     'quantity' => -$item['quantity'],
                     'movement_type' => 'outgoing',
                     'reference_id' => $orderId,
                     'reference_type' => 'order',
-                    'notes' => 'Списание по заказу ' . $orderData['order_number'],
-                    'created_by' => get_current_user_id(),
-                    'skip_stock_update' => true // Важный флаг, чтобы избежать повторного обновления запасов
+                    'notes' => 'Списание по заказу ' . $orderData['order_number'] . 
+                              (!empty($item['container_id']) ? ' (тара ' . $item['volume'] . ' л)' : ''),
+                    'created_by' => get_current_user_id()
                 ];
                 
                 $inventoryMovementModel->create($movementData);
             }
             
-            // Запись в аналитику продаж
-            $this->updateSalesAnalytics($items);
+            // Обновление аналитики продаж
+            $this->updateSalesAnalytics($orderId);
             
-            // Завершаем транзакцию только если мы ее начали
-            if (!$inTransaction) {
-                $this->db->commit();
-            }
+            // Подтверждаем транзакцию
+            $this->db->commit();
             
             return $orderId;
             
         } catch (Exception $e) {
-            // Откатываем транзакцию только если мы ее начали
-            if (!$inTransaction && $this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
+            // Откатываем транзакцию в случае ошибки
+            $this->db->rollBack();
             
             if (DEBUG_MODE) {
                 error_log("Error in createWithItems: " . $e->getMessage());
-                // Можно дополнительно логировать стек вызовов
                 error_log($e->getTraceAsString());
             }
             
@@ -156,12 +158,22 @@ class Order extends BaseModel {
      * @return array
      */
     public function getOrderItems($orderId) {
-        $sql = 'SELECT oi.*, p.name as product_name, p.image 
-                FROM order_items oi 
-                JOIN products p ON oi.product_id = p.id 
+        $sql = 'SELECT oi.*, p.name as product_name, p.image, pc.volume as container_volume
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                LEFT JOIN product_containers pc ON oi.container_id = pc.id
                 WHERE oi.order_id = ?';
         
-        return $this->db->getAll($sql, [$orderId]);
+        $items = $this->db->getAll($sql, [$orderId]);
+        
+        // Для совместимости, если volume не указан, берем из контейнера или устанавливаем 1
+        foreach ($items as &$item) {
+            if (empty($item['volume'])) {
+                $item['volume'] = $item['container_volume'] ?? 1;
+            }
+        }
+        
+        return $items;
     }
     
     /**
@@ -239,53 +251,55 @@ class Order extends BaseModel {
      * @param array $items
      * @return bool
      */
-    private function updateSalesAnalytics($items) {
-        $date = date('Y-m-d');
-        $analyticsModel = new SalesAnalytics();
+    private function updateSalesAnalytics($orderId) {
+        // Получаем информацию о заказе
+        $order = $this->getById($orderId);
+        if (!$order) {
+            return;
+        }
         
-        foreach ($items as $item) {
-            // Проверка, есть ли запись для текущей даты и продукта
-            $existingRecord = $analyticsModel->findOne('date = ? AND product_id = ?', [$date, $item['product_id']]);
+        // Получаем товары заказа
+        $orderItems = $this->getOrderItems($orderId);
+        
+        // Обновляем аналитику для каждого товара
+        foreach ($orderItems as $item) {
+            $analyticsData = [
+                'date' => date('Y-m-d'),
+                'product_id' => $item['product_id'],
+                'quantity_sold' => $item['quantity'],
+                'revenue' => $item['price'] * $item['quantity'],
+                'cost' => ($item['price'] * $item['quantity']) * 0.5, // Примерная себестоимость 50%
+                'profit' => ($item['price'] * $item['quantity']) * 0.5
+            ];
             
-            // Расчет прибыли (упрощенно - 50% от цены)
-            $cost = $item['price'] * 0.5;
-            $profit = $item['price'] - $cost;
+            // Проверяем, есть ли уже запись за сегодня
+            $sql = 'SELECT id FROM sales_analytics WHERE date = ? AND product_id = ?';
+            $existing = $this->db->getOne($sql, [$analyticsData['date'], $analyticsData['product_id']]);
             
-            if ($existingRecord) {
-                // Обновление существующей записи
+            if ($existing) {
+                // Обновляем существующую запись
                 $sql = 'UPDATE sales_analytics 
                         SET quantity_sold = quantity_sold + ?, 
                             revenue = revenue + ?, 
                             cost = cost + ?, 
-                            profit = profit + ? 
-                        WHERE date = ? AND product_id = ?';
+                            profit = profit + ?
+                        WHERE id = ?';
                 
-                $params = [
-                    $item['quantity'],
-                    $item['price'] * $item['quantity'],
-                    $cost * $item['quantity'],
-                    $profit * $item['quantity'],
-                    $date,
-                    $item['product_id']
-                ];
-                
-                $this->db->query($sql, $params);
+                $this->db->query($sql, [
+                    $analyticsData['quantity_sold'],
+                    $analyticsData['revenue'],
+                    $analyticsData['cost'],
+                    $analyticsData['profit'],
+                    $existing['id']
+                ]);
             } else {
-                // Создание новой записи
-                $analyticsData = [
-                    'date' => $date,
-                    'product_id' => $item['product_id'],
-                    'quantity_sold' => $item['quantity'],
-                    'revenue' => $item['price'] * $item['quantity'],
-                    'cost' => $cost * $item['quantity'],
-                    'profit' => $profit * $item['quantity']
-                ];
+                // Создаем новую запись
+                $sql = 'INSERT INTO sales_analytics (date, product_id, quantity_sold, revenue, cost, profit) 
+                        VALUES (:date, :product_id, :quantity_sold, :revenue, :cost, :profit)';
                 
-                $analyticsModel->create($analyticsData);
+                $this->db->query($sql, $analyticsData);
             }
         }
-        
-        return true;
     }
     
     /**

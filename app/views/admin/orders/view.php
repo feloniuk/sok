@@ -200,13 +200,15 @@ $extra_js = '
                 <h5 class="mb-0">Товари замовлення</h5>
             </div>
             <div class="card-body">
+                <!-- Обновление таблицы товаров в admin/orders/view.php -->
                 <div class="table-responsive">
                     <table class="table table-hover order-items-table">
                         <thead>
                             <tr>
                                 <th style="width: 60px;"></th>
                                 <th>Товар</th>
-                                <th class="text-end">Ціна</th>
+                                <th class="text-end">Об'єм</th>
+                                <th class="text-end">Ціна за од.</th>
                                 <th class="text-end">Кількість</th>
                                 <th class="text-end">Сума</th>
                                 <th class="no-print"></th>
@@ -216,14 +218,30 @@ $extra_js = '
                             <?php foreach ($orderItems as $item): ?>
                                 <tr>
                                     <td>
-                                        <img src="<?= $item['image'] ? upload_url($item['image']) : asset_url('images/no-image.jpg') ?>" alt="<?= $item['product_name'] ?>">
+                                        <img src="<?= $item['image'] ? upload_url($item['image']) : asset_url('images/no-image.jpg') ?>" 
+                                            alt="<?= $item['product_name'] ?>">
                                     </td>
-                                    <td><?= $item['product_name'] ?></td>
-                                    <td class="text-end"><?= number_format($item['price'], 2) ?> грн.</td>
+                                    <td>
+                                        <?= $item['product_name'] ?>
+                                        <?php if (!empty($item['container_id'])): ?>
+                                            <br><small class="text-muted">ID тари: #<?= $item['container_id'] ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end">
+                                        <?= number_format($item['volume'] ?? 1, 2) ?> л
+                                    </td>
+                                    <td class="text-end">
+                                        <?= number_format($item['price'], 2) ?> грн.
+                                        <br><small class="text-muted"><?= number_format($item['price'] / ($item['volume'] ?? 1), 2) ?> грн/л</small>
+                                    </td>
                                     <td class="text-end"><?= $item['quantity'] ?></td>
-                                    <td class="text-end"><?= number_format($item['price'] * $item['quantity'], 2) ?> грн.</td>
+                                    <td class="text-end">
+                                        <?= number_format($item['price'] * $item['quantity'], 2) ?> грн.
+                                        <br><small class="text-muted"><?= number_format(($item['volume'] ?? 1) * $item['quantity'], 2) ?> л</small>
+                                    </td>
                                     <td class="no-print">
-                                        <a href="<?= base_url('products/view/' . $item['product_id']) ?>" class="btn btn-sm btn-outline-primary">
+                                        <a href="<?= base_url('products/view/' . $item['product_id']) ?>" 
+                                        class="btn btn-sm btn-outline-primary" target="_blank">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </td>
@@ -232,7 +250,17 @@ $extra_js = '
                         </tbody>
                         <tfoot>
                             <tr class="table-active">
-                                <td colspan="4" class="text-end"><strong>Загальна сума:</strong></td>
+                                <td colspan="3" class="text-end"><strong>Загальна сума:</strong></td>
+                                <td class="text-end">
+                                    <?php 
+                                    $totalVolume = 0;
+                                    foreach ($orderItems as $item) {
+                                        $totalVolume += ($item['volume'] ?? 1) * $item['quantity'];
+                                    }
+                                    ?>
+                                    <strong><?= number_format($totalVolume, 2) ?> л</strong>
+                                </td>
+                                <td></td>
                                 <td class="text-end"><strong><?= number_format($order['total_amount'], 2) ?> грн.</strong></td>
                                 <td class="no-print"></td>
                             </tr>

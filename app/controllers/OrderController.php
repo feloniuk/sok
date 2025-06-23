@@ -396,32 +396,32 @@ public function cartAction() {
     }
     
     /**
- * Обробка форми створення замовлення
+ * Обработка формы создания заказа с поддержкой контейнеров
  */
 public function store() {
-    // Перевірка авторизації та доступу
+    // Проверка авторизации
     if (!has_role(['admin', 'sales_manager', 'customer'])) {
         $this->setFlash('error', 'У вас нет доступа к этой странице.');
         $this->redirect('orders');
         return;
     }
     
-    // Перевірка методу запиту
+    // Проверка метода запроса
     if (!$this->isPost()) {
         $this->redirect('orders/create');
         return;
     }
     
-    // Перевірка CSRF-токена
+    // Проверка CSRF-токена
     $this->validateCsrfToken();
     
-    // Отримання даних із форми
+    // Получение данных из формы
     $customerId = has_role('customer') ? get_current_user_id() : $this->input('customer_id');
     $shippingAddress = $this->input('shipping_address');
     $paymentMethod = $this->input('payment_method');
     $notes = $this->input('notes');
     
-    // Валідація даних
+    // Валидация данных
     $errors = [];
     
     if (empty($customerId)) {
@@ -436,59 +436,87 @@ public function store() {
         $errors['payment_method'] = 'Виберіть спосіб оплати';
     }
     
-    // Отримання товарів з кошика
+    // Получение товаров из корзины
     $cartItems = cart()->getItems();
     
     if (empty($cartItems)) {
         $errors['products'] = 'Додайте хоча б один товар до замовлення';
     }
     
-    // Якщо є помилки, повертаємось до форми
+    // Если есть ошибки, возвращаемся к форме
     if (!empty($errors)) {
         set_form_errors($errors);
         $this->redirect('orders/create');
         return;
     }
     
-    // Підготовка товарів для замовлення
+    // Подготовка товаров для заказа
     $orderItems = [];
     $totalAmount = 0;
+    $productContainerModel = new ProductContainer();
     
     foreach ($cartItems as $item) {
-        // Перевірка наявності на складі
-        $product = $this->productModel->getById($item['id']);
-        
-        if (!$product) {
-            $errors['product_' . $item['id']] = 'Продукт не знайдено';
-            continue;
+        // Если используется контейнер
+        if (!empty($item['container_id'])) {
+            $container = $productContainerModel->getById($item['container_id']);
+            
+            if (!$container) {
+                $errors['container_' . $item['container_id']] = 'Контейнер не знайдено';
+                continue;
+            }
+            
+            // Проверка количества в контейнере
+            if ($item['quantity'] > $container['stock_quantity']) {
+                $errors['quantity_' . $item['id']] = 'Недостатньо товару на складі. В наявності: ' . $container['stock_quantity'];
+                continue;
+            }
+            
+            $orderItems[] = [
+                'product_id' => $item['id'],
+                'container_id' => $item['container_id'],
+                'quantity' => $item['quantity'],
+                'price' => $container['price'],
+                'volume' => $container['volume'],
+                'warehouse_id' => 1
+            ];
+            
+            $totalAmount += $container['price'] * $item['quantity'];
+            
+        } else {
+            // Базовый режим без контейнеров
+            $product = $this->productModel->getById($item['id']);
+            
+            if (!$product) {
+                $errors['product_' . $item['id']] = 'Продукт не знайдено';
+                continue;
+            }
+            
+            if ($item['quantity'] > $product['stock_quantity']) {
+                $errors['quantity_' . $item['id']] = 'Недостатньо товару на складі. В наявності: ' . $product['stock_quantity'];
+                continue;
+            }
+            
+            $orderItems[] = [
+                'product_id' => $item['id'],
+                'container_id' => null,
+                'quantity' => $item['quantity'],
+                'price' => $product['price'],
+                'volume' => 1,
+                'warehouse_id' => 1
+            ];
+            
+            $totalAmount += $product['price'] * $item['quantity'];
         }
-        
-        // Перевірка кількості
-        if ($item['quantity'] > $product['stock_quantity']) {
-            $errors['quantity_' . $item['id']] = 'Недостатньо товару на складі. В наявності: ' . $product['stock_quantity'];
-            continue;
-        }
-        
-        // Додавання товару до замовлення
-        $orderItems[] = [
-            'product_id' => $item['id'],
-            'quantity' => $item['quantity'],
-            'price' => $item['price'],
-            'warehouse_id' => 1 // Використовуємо основний склад
-        ];
-        
-        // Розрахунок загальної суми
-        $totalAmount += $item['price'] * $item['quantity'];
     }
     
-    // Якщо є помилки, повертаємось до форми
+    // Если есть ошибки после проверки товаров
     if (!empty($errors)) {
         set_form_errors($errors);
         $this->redirect('orders/create');
         return;
     }
     
-    // Створення замовлення
+    // Создание заказа
     $orderData = [
         'customer_id' => $customerId,
         'status' => 'pending',
@@ -501,7 +529,14 @@ public function store() {
     $orderId = $this->orderModel->createWithItems($orderData, $orderItems);
     
     if ($orderId) {
-        // Очищаємо кошик після створення замовлення
+        // Обновляем остатки в контейнерах
+        foreach ($orderItems as $item) {
+            if (!empty($item['container_id'])) {
+                $productContainerModel->updateStock($item['container_id'], $item['quantity'], 'subtract');
+            }
+        }
+        
+        // Очищаем корзину
         cart()->clear();
         
         $this->setFlash('success', 'Замовлення успішно створено.');
@@ -511,7 +546,7 @@ public function store() {
         $this->redirect('orders/create');
     }
 }
-    
+
     /**
      * Изменение статуса заказа
      *

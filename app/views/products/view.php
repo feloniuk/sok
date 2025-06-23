@@ -406,13 +406,10 @@ $(document).ready(function() {
                 <div class="d-grid gap-2 mb-4">
                     <?php if (is_logged_in() && has_role('customer')): ?>
                         <!-- Форма добавления в корзину (если будет корзина) -->
-                        <form id="addToCartForm" action="<?= base_url('cart/add') ?>" method="POST" style="display: none;">
+                        <form id="addToCartForm" action="<?= base_url('orders/add_to_cart') ?>" method="POST">
                             <?= csrf_field() ?>
                             <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
                             <input type="hidden" id="selectedContainerId" name="container_id" value="">
-                            <input type="hidden" id="selectedPrice" name="price" value="">
-                            <input type="hidden" id="selectedVolume" name="volume" value="">
-                            <input type="hidden" name="quantity" id="cartQuantity" value="1">
                             <button type="submit" class="btn btn-success btn-lg w-100">
                                 <i class="fas fa-cart-plus me-2"></i> Додати до кошика
                             </button>
@@ -528,3 +525,56 @@ $(document).ready(function() {
         </div>
     </div>
 <?php endif; ?>
+
+<script>
+$(document).ready(function() {
+    let selectedContainer = null;
+    
+    // Выбор объема тары
+    $(".container-selector").on("click", function() {
+        if ($(this).hasClass("out-of-stock")) {
+            return;
+        }
+        
+        $(".container-selector").removeClass("selected");
+        $(this).addClass("selected");
+        
+        selectedContainer = $(this).data("container-id");
+        
+        // Обновляем скрытое поле с ID контейнера
+        $("#selectedContainerId").val(selectedContainer);
+        
+        // Обновляем количество в форме
+        $("#cartQuantity").val($("#quantity").val());
+        
+        $("#actionButtons").show();
+        $("#addToCartForm").show();
+    });
+    
+    // Обновление количества в форме при изменении
+    $("#quantity").on("input", function() {
+        $("#cartQuantity").val($(this).val());
+    });
+    
+    // Обработка формы добавления в корзину
+    $("#addToCartForm").on("submit", function(e) {
+        if (!selectedContainer) {
+            e.preventDefault();
+            alert("Будь ласка, оберіть об\'єм тари");
+            return false;
+        }
+        
+        const quantity = parseInt($("#quantity").val());
+        if (!quantity || quantity < 1) {
+            e.preventDefault();
+            alert("Будь ласка, вкажіть кількість");
+            return false;
+        }
+        
+        // Обновляем количество перед отправкой
+        $("#cartQuantity").val(quantity);
+        
+        return true;
+    });
+});
+</script>

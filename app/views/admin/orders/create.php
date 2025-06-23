@@ -124,7 +124,8 @@ $(document).ready(function() {
     // Remove item from cart
     $(document).on("click", ".remove-item", function() {
         const productId = $(this).data("id");
-        $("#cart-item-" + productId).remove();
+        const containerId = $(this).data("container");
+        $("#cart-item-" + productId + "-" + containerId).remove();
         updateCart();
     });
     
@@ -134,60 +135,70 @@ $(document).ready(function() {
     }
     
     // Add product to cart
-    function addToCart(id, name, price, qty, stock, image) {
-        const html = `
-            <div class="cart-item" id="cart-item-${id}">
-                <input type="hidden" name="product_id[]" value="${id}">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="d-flex align-items-center">
-                            <img src="${image}" class="product-image me-2" alt="${name}">
-                            <div>
-                                <div><strong>${name}</strong></div>
-                                <div>${formatCurrency(price)}</div>
-                            </div>
+    function addToCart(id, name, price, qty, stock, image, containerId = null, volume = 1) {
+    const volumeText = volume !== 1 ? ` (${volume} л)` : \'\';
+    const html = `
+        <div class="cart-item" id="cart-item-${id}-${containerId || \'base\'}">
+            <input type="hidden" name="product_id[]" value="${id}">
+            <input type="hidden" name="container_id[]" value="${containerId || \'\'}">
+            <input type="hidden" name="volume[]" value="${volume}">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <img src="${image}" class="product-image me-2" alt="${name}">
+                        <div>
+                            <div><strong>${name}${volumeText}</strong></div>
+                            <div>${formatCurrency(price)}</div>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="input-group input-group-sm">
-                            <input type="number" class="form-control item-qty" id="qty-${id}" name="quantity[]" 
-                                   value="${qty}" min="1" max="${stock}">
-                            <input type="hidden" name="price[]" value="${price}">
-                        </div>
-                    </div>
-                    <div class="col-md-2 text-end">
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-item" data-id="${id}">
-                            <i class="fas fa-times"></i>
-                        </button>
                     </div>
                 </div>
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control item-qty"
+                               id="qty-${id}-${containerId || \'base\'}"
+                               name="quantity[]"
+                               value="${qty}" min="1" max="${stock}">
+                        <input type="hidden" name="price[]" value="${price}">
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-item"
+                            data-id="${id}" data-container="${containerId || \'base\'}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
-        `;
-        
-        $("#cart-items").append(html);
-        updateCart();
-    }
-    
+        </div>
+    `;
+
+    $("#cart-items").append(html);
+    updateCart();
+}
+
     // Update cart totals
     function updateCart() {
         let totalQty = 0;
         let totalAmount = 0;
+        let totalVolume = 0;
         
-        $(".item-qty").each(function() {
-            const qty = parseInt($(this).val());
-            const price = parseFloat($(this).siblings("input[name=\'price[]\']").val());
+        $(".cart-item").each(function() {
+            const qty = parseInt($(this).find(".item-qty").val()) || 0;
+            const price = parseFloat($(this).find("input[name=\'price[]\']").val()) || 0;
+            const volume = parseFloat($(this).find("input[name=\'volume[]\']").val()) || 1;
             
             totalQty += qty;
             totalAmount += qty * price;
+            totalVolume += qty * volume;
         });
         
         $("#total-quantity").text(totalQty);
         $("#total-amount").text(formatCurrency(totalAmount));
+        $("#total-volume").text(totalVolume.toFixed(2) + " л"); // Добавляем отображение общего объема
         
-        // Update hidden field for total amount
+        // Обновление скрытого поля для общей суммы
         $("#total_amount").val(totalAmount);
         
-        // Show/hide cart content
+        // Показать/скрыть содержимое корзины
         if (totalQty > 0) {
             $("#cart-content").show();
             $("#cart-empty").hide();
@@ -195,7 +206,7 @@ $(document).ready(function() {
             $("#cart-content").hide();
             $("#cart-empty").show();
         }
-    }
+}
     
     // Initialize cart on page load
     updateCart();
@@ -346,30 +357,48 @@ $(document).ready(function() {
                         </div>
                         
                         <div id="cart-content">
+                            <!-- Обновление отображения товаров в корзине (admin/orders/create.php) -->
                             <div id="cart-items">
                                 <?php if (!empty($cart_items)): ?>
                                     <?php foreach ($cart_items as $item): ?>
-                                        <div class="cart-item" id="cart-item-<?= $item['id'] ?>">
+                                        <div class="cart-item" id="cart-item-<?= $item['id'] ?>-<?= $item['container_id'] ?? 'base' ?>">
                                             <input type="hidden" name="product_id[]" value="<?= $item['id'] ?>">
+                                            <input type="hidden" name="container_id[]" value="<?= $item['container_id'] ?? '' ?>">
+                                            <input type="hidden" name="volume[]" value="<?= $item['volume'] ?? 1 ?>">
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <div class="d-flex align-items-center">
-                                                        <img src="<?= $item['image'] ?>" class="product-image me-2" alt="<?= $item['name'] ?>">
+                                                        <img src="<?= $item['image'] ? upload_url($item['image']) : asset_url('images/no-image.jpg') ?>" 
+                                                            class="product-image me-2" alt="<?= $item['name'] ?>">
                                                         <div>
-                                                            <div><strong><?= $item['name'] ?></strong></div>
-                                                            <div><?= number_format($item['price'], 2) ?> грн.</div>
+                                                            <div>
+                                                                <strong><?= $item['name'] ?></strong>
+                                                                <?php if (($item['volume'] ?? 1) != 1): ?>
+                                                                    <span class="badge bg-info ms-2"><?= number_format($item['volume'], 2) ?> л</span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                            <div>
+                                                                <?= number_format($item['price'], 2) ?> грн.
+                                                                <small class="text-muted">
+                                                                    (<?= number_format($item['price'] / ($item['volume'] ?? 1), 2) ?> грн/л)
+                                                                </small>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-4">
                                                     <div class="input-group input-group-sm">
-                                                        <input type="number" class="form-control item-qty" id="qty-<?= $item['id'] ?>" name="quantity[]" 
-                                                               value="<?= $item['quantity'] ?>" min="1" max="<?= $item['stock_quantity'] ?>">
+                                                        <input type="number" class="form-control item-qty" 
+                                                            id="qty-<?= $item['id'] ?>-<?= $item['container_id'] ?? 'base' ?>" 
+                                                            name="quantity[]" 
+                                                            value="<?= $item['quantity'] ?>" min="1" max="999">
                                                         <input type="hidden" name="price[]" value="<?= $item['price'] ?>">
                                                     </div>
                                                 </div>
                                                 <div class="col-md-2 text-end">
-                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-item" data-id="<?= $item['id'] ?>">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-item" 
+                                                            data-id="<?= $item['id'] ?>" 
+                                                            data-container="<?= $item['container_id'] ?? 'base' ?>">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
@@ -378,27 +407,29 @@ $(document).ready(function() {
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
-                            
+
                             <hr>
-                            
-                            <!-- Итоги -->
+
+                            <!-- Итоги с объемом -->
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <strong>Загальна кількість:</strong> <span id="total-quantity">0</span> шт.
+                                </div>
+                                <div>
+                                    <strong>Загальний об'єм:</strong> <span id="total-volume">0.00</span> л
                                 </div>
                                 <div>
                                     <strong>Сума замовлення:</strong> <span id="total-amount">0.00 грн.</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
+
                     <!-- Кнопки -->
                     <div class="d-flex justify-content-between">
                         <a href="<?= base_url('orders') ?>" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-1"></i> Назад до списку
                         </a>
-                        
+
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-check-circle me-1"></i> Оформити замовлення
                         </button>

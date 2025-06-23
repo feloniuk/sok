@@ -194,8 +194,15 @@ $router->post('api/check_product_availability', 'ApiController', 'checkProductAv
 
 // Роути для замовлень
 $router->post('orders/add_to_cart', 'OrderController', 'addToCart');
+$router->post('orders/cart_action', 'OrderController', 'cartAction');
 $router->get('orders/cart', 'OrderController', 'cartAction');
 $router->post('orders/cart', 'OrderController', 'cartAction');
+
+$router->post('cart/add', 'OrderController', 'cartAction');
+$router->post('cart/update', 'OrderController', 'cartAction');
+$router->post('cart/remove', 'OrderController', 'cartAction');
+$router->post('cart/clear', 'OrderController', 'cartAction');
+$router->post('cart/get', 'OrderController', 'cartAction');
 
 // Обработка 404 ошибки
 $router->notFound(function() {
