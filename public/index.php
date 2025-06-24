@@ -188,7 +188,7 @@ $router->get('reports/customers', 'ReportController', 'customers', [RoleMiddlewa
 $router->get('reports/generate', 'ReportController', 'generate', [RoleMiddleware::allow(['admin', 'sales_manager'])]);
 
 // API роути для роботи з продуктами та контейнерами
-$router->get('api/products_with_containers', 'ApiController', 'productsWithContainers');
+$router->get('api/products_with_containers', 'ProductController', 'getProductsWithContainers');
 $router->get('api/product_containers/{id}', 'ApiController', 'productContainers');
 $router->post('api/check_product_availability', 'ApiController', 'checkProductAvailability');
 
