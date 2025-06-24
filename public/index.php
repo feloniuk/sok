@@ -188,44 +188,14 @@ $router->get('reports/customers', 'ReportController', 'customers', [RoleMiddlewa
 $router->get('reports/generate', 'ReportController', 'generate', [RoleMiddleware::allow(['admin', 'sales_manager'])]);
 
 // API роути для роботи з продуктами та контейнерами
-$router->get('api/products_with_containers', 'ProductController', 'getProductsWithContainers');
+$router->get('api/products_with_containers', 'ApiController', 'productsWithContainers');
 $router->get('api/product_containers/{id}', 'ApiController', 'productContainers');
 $router->post('api/check_product_availability', 'ApiController', 'checkProductAvailability');
 
 // Роути для замовлень
 $router->post('orders/add_to_cart', 'OrderController', 'addToCart');
-$router->post('orders/cart_action', 'OrderController', 'cartAction');
 $router->get('orders/cart', 'OrderController', 'cartAction');
 $router->post('orders/cart', 'OrderController', 'cartAction');
-
-$router->post('cart/add', 'OrderController', 'cartAction');
-$router->post('cart/update', 'OrderController', 'cartAction');
-$router->post('cart/remove', 'OrderController', 'cartAction');
-$router->post('cart/clear', 'OrderController', 'cartAction');
-$router->post('cart/get', 'OrderController', 'cartAction');
-
-// API маршруты для новой страницы создания заказов
-$router->get('api/products-with-containers', 'ApiController', 'productsWithContainers');
-$router->get('api/search-products', 'ApiController', 'searchProducts');
-$router->get('api/product-details', 'ApiController', 'getProductDetails');
-$router->get('api/popular-products', 'ApiController', 'getPopularProducts');
-$router->get('api/check-availability', 'ApiController', 'checkProductAvailability');
-$router->get('api/categories', 'ApiController', 'getCategories');
-$router->post('api/validate-cart', 'ApiController', 'validateCart');
-$router->get('api/promotions', 'ApiController', 'getPromotions');
-$router->get('api/dashboard-stats', 'ApiController', 'getDashboardStats');
-$router->post('api/check-cart-compatibility', 'ApiController', 'checkCartCompatibility');
-
-// Дополнительные маршруты для заказов
-$router->get('orders/product-with-containers', 'OrderController', 'getProductWithContainers');
-$router->get('orders/check-availability', 'OrderController', 'checkAvailability');
-$router->get('orders/recommended-products', 'OrderController', 'getRecommendedProducts');
-$router->post('orders/validate-cart', 'OrderController', 'validateCart');
-
-// Маршруты для работы с контейнерами (если нужно отдельное управление)
-$router->get('api/containers/by-product/{id}', 'ApiController', 'getContainersByProduct');
-$router->get('api/containers/{id}', 'ApiController', 'getContainerInfo');
-$router->post('api/containers/check-stock', 'ApiController', 'checkStock');
 
 // Обработка 404 ошибки
 $router->notFound(function() {
