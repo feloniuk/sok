@@ -1,204 +1,610 @@
 <?php
-// app/views/orders/create.php - Обновленная форма создания заказа с полной поддержкой контейнеров
+// app/views/orders/create.php - Полностью переделанная форма создания заказа
 $title = 'Створення нового замовлення';
 
 // Подключение дополнительных CSS
 $extra_css = '
 <style>
-    .order-form-card {
-        border-radius: 0.5rem;
-        overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        border: none;
+    :root {
+        --primary-color: #007bff;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --light-color: #f8f9fa;
+        --dark-color: #495057;
     }
-    
-    .order-item {
-        background-color: #f8f9fa;
-        border-radius: 0.5rem;
-        padding: 15px;
-        margin-bottom: 15px;
-        position: relative;
-        border: 2px solid #e9ecef;
+
+    body {
+        background-color: #f8f9fc;
+    }
+
+    .order-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 123, 255, 0.3);
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 600;
+    }
+
+    .page-header p {
+        margin: 10px 0 0 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+
+    .section-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+        overflow: hidden;
         transition: all 0.3s ease;
     }
-    
-    .order-item:hover {
-        border-color: #007bff;
-        box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+
+    .section-card:hover {
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     }
-    
-    .product-image-preview {
+
+    .section-header {
+        background: linear-gradient(90deg, var(--primary-color), #4dabf7);
+        color: white;
+        padding: 20px 30px;
+        font-weight: 600;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .section-body {
+        padding: 30px;
+    }
+
+    /* Каталог товаров */
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+        margin-bottom: 30px;
+    }
+
+    .product-card {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        background: white;
+    }
+
+    .product-card:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 5px 15px rgba(0, 123, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .product-card.unavailable {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background: #f8f9fa;
+    }
+
+    .product-image {
         width: 80px;
         height: 80px;
         object-fit: cover;
+        border-radius: 8px;
         margin-right: 15px;
-        border-radius: 0.25rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-    
-    .product-details {
-        flex-grow: 1;
+
+    .product-info {
+        flex: 1;
     }
-    
-    .quantity-control {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+
+    .product-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        font-size: 1.1rem;
     }
-    
-    .quantity-control input {
-        width: 80px;
-        text-align: center;
+
+    .product-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
     }
-    
-    .remove-product {
+
+    .product-price {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .availability-badge {
         position: absolute;
-        top: 10px;
-        right: 10px;
-        color: #dc3545;
-        cursor: pointer;
-        background: white;
-        border: 1px solid #dc3545;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
+        top: 15px;
+        right: 15px;
+        padding: 5px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
     }
-    
-    .remove-product:hover {
-        background: #dc3545;
-        color: white;
+
+    .available {
+        background: #d4edda;
+        color: #155724;
     }
-    
-    .total-price {
-        font-weight: bold;
-        color: #007bff;
+
+    .low-stock {
+        background: #fff3cd;
+        color: #856404;
     }
-    
-    .container-selector {
+
+    .out-of-stock {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    /* Выбор контейнеров */
+    .container-selection {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .container-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .container-option {
         border: 2px solid #e9ecef;
-        border-radius: 0.5rem;
+        border-radius: 8px;
         padding: 15px;
-        margin-bottom: 15px;
+        text-align: center;
         cursor: pointer;
         transition: all 0.3s ease;
         position: relative;
     }
-    
-    .container-selector:hover {
-        border-color: #007bff;
-        background-color: #f8f9ff;
-        box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+
+    .container-option:hover {
+        border-color: var(--primary-color);
     }
-    
-    .container-selector.selected {
-        border-color: #007bff;
-        background-color: #e7f3ff;
-        box-shadow: 0 4px 12px rgba(0,123,255,0.25);
+
+    .container-option.selected {
+        border-color: var(--primary-color);
+        background: #f8f9ff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
     }
-    
-    .container-selector.out-of-stock {
-        opacity: 0.6;
+
+    .container-option.unavailable {
+        opacity: 0.5;
         cursor: not-allowed;
-        background-color: #f8f9fa;
+        background: #f8f9fa;
     }
-    
-    .container-selector.out-of-stock:hover {
-        border-color: #e9ecef;
-        background-color: #f8f9fa;
-        box-shadow: none;
+
+    .volume-label {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 5px;
     }
-    
-    .volume-badge {
-        position: absolute;
-        top: -8px;
-        left: 15px;
-        background: #007bff;
-        color: white;
-        padding: 5px 15px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-        font-weight: bold;
+
+    .container-price {
+        font-weight: 700;
+        margin-bottom: 3px;
     }
-    
-    .container-selector.out-of-stock .volume-badge {
-        background: #6c757d;
-    }
-    
+
     .price-per-liter {
         font-size: 0.8rem;
         color: #6c757d;
-        margin-top: 5px;
     }
-    
+
     .best-value-badge {
         position: absolute;
         top: -8px;
-        right: 15px;
-        background: #28a745;
+        right: -8px;
+        background: var(--success-color);
         color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
+        padding: 3px 8px;
+        border-radius: 10px;
         font-size: 0.7rem;
-        font-weight: bold;
-        animation: pulse 2s infinite;
+        font-weight: 600;
     }
-    
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
+
+    /* Количество */
+    .quantity-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
     }
-    
-    .product-search-card {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    
-    .product-card-mini {
-        border: 1px solid #e9ecef;
-        border-radius: 0.5rem;
-        padding: 10px;
-        margin-bottom: 10px;
+
+    .quantity-btn {
+        width: 35px;
+        height: 35px;
+        border: 2px solid var(--primary-color);
+        background: white;
+        color: var(--primary-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
         transition: all 0.3s ease;
+        font-weight: 600;
     }
-    
-    .product-card-mini:hover {
-        border-color: #007bff;
-        background-color: #f8f9ff;
+
+    .quantity-btn:hover {
+        background: var(--primary-color);
+        color: white;
     }
-    
-    .product-card-mini img {
-        width: 50px;
-        height: 50px;
-        object-fit: cover;
+
+    .quantity-input {
+        width: 80px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 8px;
+    }
+
+    .add-to-order-btn {
+        background: var(--success-color);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 15px;
+        width: 100%;
+    }
+
+    .add-to-order-btn:hover {
+        background: #218838;
+        transform: translateY(-1px);
+    }
+
+    /* Корзина заказа */
+    .order-cart {
+        position: sticky;
+        top: 20px;
+    }
+
+    .cart-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: #f8f9fa;
+        position: relative;
+    }
+
+    .cart-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 10px;
+    }
+
+    .cart-item-name {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .remove-item {
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+
+    .cart-item-details {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 10px;
+    }
+
+    .cart-quantity-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .cart-quantity-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .cart-quantity-btn {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--primary-color);
+        background: white;
+        color: var(--primary-color);
         border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.9rem;
     }
-    
+
+    .cart-quantity-input {
+        width: 50px;
+        text-align: center;
+        font-weight: 600;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 4px;
+    }
+
+    .item-total {
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    /* Сводка заказа */
     .order-summary {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        border-radius: 0.5rem;
-        padding: 20px;
+        padding: 25px;
+        border-radius: 12px;
         margin-top: 20px;
     }
-    
+
     .summary-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         padding-bottom: 8px;
-        border-bottom: 1px solid rgba(255,255,255,0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
-    
+
     .summary-row:last-child {
-        border-bottom: none;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.5);
         margin-bottom: 0;
-        font-weight: bold;
+        font-weight: 700;
         font-size: 1.2rem;
+    }
+
+    /* Форма заказа */
+    .order-form {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        outline: none;
+    }
+
+    .submit-order-btn {
+        background: linear-gradient(135deg, var(--success-color) 0%, #20c997 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+
+    .submit-order-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+
+    .submit-order-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Поиск */
+    .search-section {
+        margin-bottom: 25px;
+    }
+
+    .search-input {
+        position: relative;
+    }
+
+    .search-input input {
+        padding-left: 45px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+
+    /* Фильтры */
+    .filters-section {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+
+    .filter-select {
+        min-width: 200px;
+        padding: 10px 15px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+    }
+
+    /* Анимации */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .cart-item {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    /* Адаптивность */
+    @media (max-width: 1200px) {
+        .product-grid {
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+        .order-container {
+            padding: 15px;
+        }
+        
+        .page-header {
+            padding: 20px;
+        }
+        
+        .page-header h1 {
+            font-size: 2rem;
+        }
+        
+        .section-body {
+            padding: 20px;
+        }
+        
+        .product-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .container-options {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+        
+        .filters-section {
+            flex-direction: column;
+        }
+        
+        .filter-select {
+            width: 100%;
+        }
+    }
+
+    /* Состояния загрузки */
+    .loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Уведомления */
+    .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 1000;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.success {
+        background: var(--success-color);
+    }
+
+    .toast.error {
+        background: var(--danger-color);
+    }
+
+    .empty-cart {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+
+    .empty-cart-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
     }
 </style>';
 
@@ -206,518 +612,623 @@ $extra_css = '
 $extra_js = '
 <script>
 $(document).ready(function() {
-    let itemCounter = 0;
-    let selectedContainers = new Set();
-    
-    // Загрузка продуктов при открытии модального окна
-    $("#addItemBtn").on("click", function() {
+    // Состояние приложения
+    let cartItems = [];
+    let products = [];
+    let selectedFilters = {
+        category: "",
+        search: ""
+    };
+
+    // Инициализация
+    init();
+
+    function init() {
         loadProducts();
-        $("#productSelectionModal").modal("show");
-    });
-    
-    // Поиск продуктов
-    $("#productSearch").on("input", function() {
-        const keyword = $(this).val();
-        if (keyword.length >= 2) {
-            searchProducts(keyword);
-        } else if (keyword.length === 0) {
-            loadProducts();
-        }
-    });
-    
-    // Выбор продукта
-    $(document).on("click", ".select-product", function() {
-        const productId = $(this).data("product-id");
-        const productName = $(this).data("product-name");
-        const productImage = $(this).data("product-image");
-        const containers = $(this).data("containers");
-        
-        $("#selectedProductId").val(productId);
-        $("#selectedProductName").val(productName);
-        $("#selectedProductImage").val(productImage);
-        
-        showContainerSelection(productName, containers);
-    });
-    
-    // Выбор контейнера
-    $(document).on("click", ".container-selector", function() {
-        if ($(this).hasClass("out-of-stock")) {
-            return;
-        }
-        
-        $(".container-selector").removeClass("selected");
-        $(this).addClass("selected");
-        
-        const containerId = $(this).data("container-id");
-        const price = $(this).data("price");
-        const volume = $(this).data("volume");
-        const stock = $(this).data("stock");
-        
-        $("#selectedContainerId").val(containerId);
-        $("#selectedPrice").val(price);
-        $("#selectedVolume").val(volume);
-        $("#selectedStock").val(stock);
-        
-        $("#addToOrderBtn").prop("disabled", false);
-    });
-    
-    // Добавление товара в заказ
-    $("#addToOrderBtn").on("click", function() {
-        const productId = $("#selectedProductId").val();
-        const productName = $("#selectedProductName").val();
-        const productImage = $("#selectedProductImage").val();
-        const containerId = $("#selectedContainerId").val();
-        const price = parseFloat($("#selectedPrice").val());
-        const volume = $("#selectedVolume").val();
-        const stock = parseInt($("#selectedStock").val());
-        
-        if (!containerId) {
-            alert("Будь ласка, оберіть об\'єм тари");
-            return;
-        }
-        
-        // Проверяем, не добавлен ли уже этот контейнер
-        if (selectedContainers.has(containerId)) {
-            alert("Цей об\'єм вже додано до замовлення");
-            return;
-        }
-        
-        addToOrder(productId, productName, productImage, containerId, price, volume, stock);
-        $("#productSelectionModal").modal("hide");
-        clearModalData();
-    });
-    
-    // Удаление товара из заказа
-    $(document).on("click", ".remove-product", function() {
-        const containerId = $(this).data("container-id");
-        selectedContainers.delete(containerId);
-        $(this).closest(".order-item").remove();
-        updateOrderSummary();
-        checkEmptyOrder();
-    });
-    
-    // Изменение количества
-    $(document).on("change", ".quantity-input", function() {
-        const item = $(this).closest(".order-item");
-        updateItemTotal(item);
-        updateOrderSummary();
-    });
-    
-    // Увеличение количества
-    $(document).on("click", ".increase-quantity", function() {
-        const input = $(this).siblings(".quantity-input");
-        const currentValue = parseInt(input.val());
-        const maxValue = parseInt(input.data("max-stock"));
-        
-        if (currentValue < maxValue) {
-            input.val(currentValue + 1).trigger("change");
-        }
-    });
-    
-    // Уменьшение количества
-    $(document).on("click", ".decrease-quantity", function() {
-        const input = $(this).siblings(".quantity-input");
-        const currentValue = parseInt(input.val());
-        
-        if (currentValue > 1) {
-            input.val(currentValue - 1).trigger("change");
-        }
-    });
-    
-    // Функция загрузки продуктов
+        setupEventListeners();
+        updateUI();
+    }
+
+    function setupEventListeners() {
+        // Поиск
+        $("#searchInput").on("input", debounce(function() {
+            selectedFilters.search = $(this).val();
+            filterProducts();
+        }, 300));
+
+        // Фильтр по категории
+        $("#categoryFilter").on("change", function() {
+            selectedFilters.category = $(this).val();
+            filterProducts();
+        });
+
+        // Сброс фильтров
+        $("#resetFilters").on("click", function() {
+            selectedFilters = { category: "", search: "" };
+            $("#searchInput").val("");
+            $("#categoryFilter").val("");
+            filterProducts();
+        });
+
+        // Отправка формы
+        $("#orderForm").on("submit", function(e) {
+            e.preventDefault();
+            submitOrder();
+        });
+    }
+
     function loadProducts() {
-        $("#productsList").html("<div class=\"text-center p-3\"><div class=\"spinner-border\" role=\"status\"></div></div>");
-        
+        showLoading();
         $.ajax({
             url: "' . base_url('api/products_with_containers') . '",
             type: "GET",
             dataType: "json",
             success: function(data) {
-                renderProducts(data.products || []);
+                products = data.products || [];
+                filterProducts();
+                hideLoading();
             },
             error: function() {
-                $("#productsList").html("<div class=\"alert alert-danger\">Помилка завантаження товарів</div>");
+                showToast("Помилка завантаження товарів", "error");
+                hideLoading();
             }
         });
     }
-    
-    // Функция поиска продуктов
-    function searchProducts(keyword) {
-        $.ajax({
-            url: "' . base_url('api/products_with_containers') . '",
-            type: "GET",
-            data: { search: keyword },
-            dataType: "json",
-            success: function(data) {
-                renderProducts(data.products || []);
+
+    function filterProducts() {
+        let filtered = products.filter(product => {
+            let matchesSearch = true;
+            let matchesCategory = true;
+
+            if (selectedFilters.search) {
+                const search = selectedFilters.search.toLowerCase();
+                matchesSearch = product.name.toLowerCase().includes(search) ||
+                               (product.description && product.description.toLowerCase().includes(search));
             }
+
+            if (selectedFilters.category) {
+                matchesCategory = product.category_id == selectedFilters.category;
+            }
+
+            return matchesSearch && matchesCategory;
         });
+
+        renderProducts(filtered);
     }
-    
-    // Отображение продуктов
-    function renderProducts(products) {
-        let html = "";
+
+    function renderProducts(productList) {
+        const container = $("#productsGrid");
         
-        if (products.length === 0) {
-            html = "<div class=\"alert alert-info\">Товари не знайдені</div>";
-        } else {
-            products.forEach(function(product) {
-                const hasAvailableContainers = product.containers && product.containers.some(c => c.is_active && c.stock_quantity > 0);
-                
-                html += `
-                    <div class="product-card-mini ${!hasAvailableContainers ? 'opacity-50' : ''}"
-                         ${hasAvailableContainers ? 'data-product-id="' + product.id + '"' : ''}
-                         ${hasAvailableContainers ? 'data-product-name="' + product.name + '"' : ''}
-                         ${hasAvailableContainers ? 'data-product-image="' + (product.image || '<?= asset_url('images/no-image.jpg') ?>') + '"' : ''}
-                         ${hasAvailableContainers ? 'data-containers=\'' + JSON.stringify(product.containers) + '\'' : ''}>
-                        <div class="d-flex align-items-center">
-                            <img src="${product.image || '<?= asset_url('images/no-image.jpg') ?>'}" alt="${product.name}">
-                            <div class="ms-3 flex-grow-1">
-                                <h6 class="mb-1">${product.name}</h6>
-                                <p class="mb-1 text-muted small">${product.description || ''}</p>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-primary fw-bold">
-                                        від ${product.min_price ? parseFloat(product.min_price).toFixed(2) : '0.00'} грн
-                                    </span>
-                                    ${hasAvailableContainers ? 
-                                        '<button class="btn btn-sm btn-primary select-product">Обрати</button>' :
-                                        '<span class="badge bg-danger">Немає в наявності</span>'
-                                    }
-                                </div>
-                            </div>
-                        </div>
+        if (productList.length === 0) {
+            container.html(`
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Товари не знайдені</h5>
+                        <p class="text-muted">Спробуйте змінити параметри пошуку</p>
                     </div>
-                `;
-            });
+                </div>
+            `);
+            return;
         }
-        
-        $("#productsList").html(html);
-    }
-    
-    // Показать выбор контейнеров
-    function showContainerSelection(productName, containers) {
-        $("#selectedProductTitle").text(productName);
-        
+
         let html = "";
-        let bestValueId = null;
-        let bestPricePerLiter = Infinity;
+        productList.forEach(product => {
+            html += renderProductCard(product);
+        });
+
+        container.html(html);
+    }
+
+    function renderProductCard(product) {
+        const hasContainers = product.containers && product.containers.length > 0;
+        const availableContainers = hasContainers ? 
+            product.containers.filter(c => c.is_active && c.stock_quantity > 0) : [];
         
+        const isAvailable = availableContainers.length > 0;
+        const minPrice = isAvailable ? 
+            Math.min(...availableContainers.map(c => c.price)) : 
+            (product.price || 0);
+
+        let stockClass = "out-of-stock";
+        let stockText = "Немає в наявності";
+        
+        if (isAvailable) {
+            const totalStock = availableContainers.reduce((sum, c) => sum + c.stock_quantity, 0);
+            if (totalStock > 10) {
+                stockClass = "available";
+                stockText = "В наявності";
+            } else {
+                stockClass = "low-stock";
+                stockText = "Мало в наявності";
+            }
+        }
+
         // Находим лучшее предложение
-        containers.forEach(function(container) {
-            if (container.is_active && container.stock_quantity > 0) {
+        let bestValueId = null;
+        if (availableContainers.length > 1) {
+            let bestPricePerLiter = Infinity;
+            availableContainers.forEach(container => {
                 const pricePerLiter = container.price / container.volume;
                 if (pricePerLiter < bestPricePerLiter) {
                     bestPricePerLiter = pricePerLiter;
                     bestValueId = container.id;
                 }
-            }
-        });
-        
-        if (!containers || containers.length === 0) {
-            html = "<div class=\"alert alert-warning\">Немає доступних об\'ємів для цього товару</div>";
-        } else {
-            containers.forEach(function(container) {
-                const isOutOfStock = !container.is_active || container.stock_quantity <= 0;
-                const isAlreadySelected = selectedContainers.has(container.id.toString());
-                const pricePerLiter = (container.price / container.volume).toFixed(2);
-                const isBestValue = container.id === bestValueId;
-                
-                html += \`
-                    <div class="container-selector ${isOutOfStock || isAlreadySelected ? 'out-of-stock' : ''}"
-                         data-container-id="${container.id}"
-                         data-price="${container.price}"
-                         data-volume="${container.volume}"
-                         data-stock="${container.stock_quantity}">
-                        
-                        <div class="volume-badge">${container.volume} л</div>
-                        
-                        ${isBestValue && !isOutOfStock && !isAlreadySelected ? 
-                            '<div class="best-value-badge">Найвигідніше!</div>' : ''}
-                        
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <div class="fw-bold fs-5">${container.price.toFixed(2)} грн</div>
-                                <div class="price-per-liter">${pricePerLiter} грн/л</div>
-                            </div>
-                            <div class="col-md-6 text-end">
-                                ${isAlreadySelected ? 
-                                    '<span class="text-warning"><i class="fas fa-check-circle me-1"></i>Вже додано</span>' :
-                                    (isOutOfStock ? 
-                                        '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Немає в наявності</span>' :
-                                        '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Доступно: ${container.stock_quantity} шт.</span>'
-                                    )
-                                }
-                            </div>
-                        </div>
-                    </div>
-                \`;
             });
         }
-        
-        $("#containersList").html(html);
-        $("#containerSelectionStep").show();
-        $("#addToOrderBtn").prop("disabled", true);
-    }
-    
-    // Добавление товара в заказ
-    function addToOrder(productId, productName, productImage, containerId, price, volume, stock) {
-        selectedContainers.add(containerId);
-        
-        const pricePerLiter = (price / volume).toFixed(2);
-        
-        const itemHtml = \`
-            <div class="order-item" data-container-id="${containerId}">
-                <input type="hidden" name="items[${itemCounter}][container_id]" value="${containerId}">
-                <input type="hidden" name="items[${itemCounter}][product_id]" value="${productId}">
-                <input type="hidden" name="items[${itemCounter}][price]" value="${price}">
-                <input type="hidden" name="items[${itemCounter}][volume]" value="${volume}">
+
+        return `
+            <div class="product-card ${!isAvailable ? 'unavailable' : ''}" data-product-id="${product.id}">
+                <span class="availability-badge ${stockClass}">${stockText}</span>
                 
-                <button type="button" class="remove-product" data-container-id="${containerId}">
-                    <i class="fas fa-times"></i>
-                </button>
-                
-                <div class="d-flex align-items-center">
-                    <img src="${productImage}" alt="${productName}" class="product-image-preview">
-                    <div class="product-details">
-                        <h6 class="mb-1">${productName}</h6>
-                        <div class="mb-2">
-                            <span class="volume-badge">${volume} л</span>
-                            <span class="fw-bold ms-2">${price.toFixed(2)} грн</span>
-                            <span class="price-per-liter ms-2">(${pricePerLiter} грн/л)</span>
-                        </div>
-                        <small class="text-muted">Доступно: ${stock} шт.</small>
-                    </div>
-                    <div class="quantity-control">
-                        <button type="button" class="btn btn-sm btn-outline-secondary decrease-quantity">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <input type="number" 
-                               class="form-control form-control-sm quantity-input" 
-                               name="items[${itemCounter}][quantity]"
-                               value="1" 
-                               min="1" 
-                               max="${stock}"
-                               data-max-stock="${stock}">
-                        <button type="button" class="btn btn-sm btn-outline-secondary increase-quantity">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="ms-3 text-end">
-                        <div class="total-price item-total" data-unit-price="${price}">
-                            ${price.toFixed(2)} грн
-                        </div>
+                <div class="d-flex">
+                    <img src="${product.image || '<?= asset_url('images/no-image.jpg') ?>'}" 
+                         alt="${product.name}" class="product-image">
+                    
+                    <div class="product-info">
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-description">${product.description || ''}</div>
+                        <div class="product-price">від ${minPrice.toFixed(2)} грн</div>
                     </div>
                 </div>
+
+                ${isAvailable ? `
+                    <div class="container-selection">
+                        <div class="fw-bold mb-2">Оберіть об'єм:</div>
+                        <div class="container-options">
+                            ${availableContainers.map(container => `
+                                <div class="container-option" 
+                                     data-container-id="${container.id}"
+                                     data-product-id="${product.id}"
+                                     data-price="${container.price}"
+                                     data-volume="${container.volume}"
+                                     data-stock="${container.stock_quantity}">
+                                    ${container.id === bestValueId ? '<div class="best-value-badge">Вигідно!</div>' : ''}
+                                    <div class="volume-label">${container.volume} л</div>
+                                    <div class="container-price">${container.price.toFixed(2)} грн</div>
+                                    <div class="price-per-liter">${(container.price / container.volume).toFixed(2)} грн/л</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="quantity-controls" style="display: none;">
+                            <span>Кількість:</span>
+                            <div class="d-flex align-items-center">
+                                <button type="button" class="quantity-btn decrease-qty">−</button>
+                                <input type="number" class="quantity-input" value="1" min="1">
+                                <button type="button" class="quantity-btn increase-qty">+</button>
+                            </div>
+                            <button type="button" class="add-to-order-btn">
+                                <i class="fas fa-cart-plus me-1"></i>
+                                Додати до замовлення
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
             </div>
-        \`;
-        
-        $("#itemsContainer").append(itemHtml);
-        itemCounter++;
-        updateOrderSummary();
-        $("#emptyMessage").hide();
+        `;
     }
-    
-    // Обновление итогов товара
-    function updateItemTotal(item) {
-        const quantity = parseInt(item.find(".quantity-input").val()) || 1;
-        const unitPrice = parseFloat(item.find(".item-total").data("unit-price"));
-        const total = quantity * unitPrice;
+
+    // Обработчики событий для продуктов (делегирование событий)
+    $(document).on("click", ".container-option", function() {
+        const card = $(this).closest(".product-card");
+        const isUnavailable = $(this).hasClass("unavailable");
         
-        item.find(".item-total").text(total.toFixed(2) + " грн");
-    }
-    
-    // Обновление общих итогов заказа
-    function updateOrderSummary() {
-        let totalQuantity = 0;
-        let totalVolume = 0;
-        let totalAmount = 0;
-        let uniqueProducts = 0;
+        if (isUnavailable) return;
+
+        // Убираем выделение с других опций в этой карточке
+        card.find(".container-option").removeClass("selected");
+        $(this).addClass("selected");
+
+        // Показываем элементы управления количеством
+        const quantityControls = card.find(".quantity-controls");
+        const maxStock = parseInt($(this).data("stock"));
         
-        $(".order-item").each(function() {
-            const quantity = parseInt($(this).find(".quantity-input").val()) || 0;
-            const price = parseFloat($(this).find("input[name*=\"[price]\"]").val()) || 0;
-            const volume = parseFloat($(this).find("input[name*=\"[volume]\"]").val()) || 1;
-            
-            totalQuantity += quantity;
-            totalVolume += quantity * volume;
-            totalAmount += quantity * price;
-            uniqueProducts++;
-        });
+        quantityControls.find(".quantity-input").attr("max", maxStock);
+        if (parseInt(quantityControls.find(".quantity-input").val()) > maxStock) {
+            quantityControls.find(".quantity-input").val(maxStock);
+        }
         
-        // Обновляем итоги
-        $("#orderTotal").text(totalAmount.toFixed(2) + " грн");
-        $("#totalQuantity").text(totalQuantity);
-        $("#totalVolume").text(totalVolume.toFixed(2) + " л");
-        $("#uniqueProducts").text(uniqueProducts);
-        $("#totalAmountInput").val(totalAmount.toFixed(2));
+        quantityControls.show();
+    });
+
+    // Кнопки изменения количества
+    $(document).on("click", ".increase-qty", function() {
+        const input = $(this).siblings(".quantity-input");
+        const current = parseInt(input.val());
+        const max = parseInt(input.attr("max"));
         
-        // Включаем/выключаем кнопку заказа
-        $("#submitOrderBtn").prop("disabled", totalAmount === 0);
+        if (current < max) {
+            input.val(current + 1);
+        }
+    });
+
+    $(document).on("click", ".decrease-qty", function() {
+        const input = $(this).siblings(".quantity-input");
+        const current = parseInt(input.val());
         
-        // Показываем сводку, если есть товары
-        if (totalAmount > 0) {
-            $("#orderSummaryCard").show();
+        if (current > 1) {
+            input.val(current - 1);
+        }
+    });
+
+    // Добавление в заказ
+    $(document).on("click", ".add-to-order-btn", function() {
+        const card = $(this).closest(".product-card");
+        const selectedContainer = card.find(".container-option.selected");
+        
+        if (selectedContainer.length === 0) {
+            showToast("Оберіть об\'єм тари", "error");
+            return;
+        }
+
+        const productId = selectedContainer.data("product-id");
+        const containerId = selectedContainer.data("container-id");
+        const price = parseFloat(selectedContainer.data("price"));
+        const volume = parseFloat(selectedContainer.data("volume"));
+        const stock = parseInt(selectedContainer.data("stock"));
+        const quantity = parseInt(card.find(".quantity-input").val());
+        const productName = card.find(".product-name").text();
+        const productImage = card.find(".product-image").attr("src");
+
+        if (quantity > stock) {
+            showToast(`Недостатньо товару на складі. Доступно: ${stock}`, "error");
+            return;
+        }
+
+        // Проверяем, нет ли уже такого товара в корзине
+        const existingItemIndex = cartItems.findIndex(item => 
+            item.container_id === containerId
+        );
+
+        if (existingItemIndex !== -1) {
+            // Обновляем количество
+            cartItems[existingItemIndex].quantity += quantity;
         } else {
-            $("#orderSummaryCard").hide();
+            // Добавляем новый товар
+            cartItems.push({
+                product_id: productId,
+                container_id: containerId,
+                name: productName,
+                image: productImage,
+                price: price,
+                volume: volume,
+                quantity: quantity,
+                stock: stock
+            });
         }
-    }
-    
-    // Проверка пустого заказа
-    function checkEmptyOrder() {
-        if ($(".order-item").length === 0) {
-            $("#emptyMessage").show();
-            $("#orderSummaryCard").hide();
-        }
-    }
-    
-    // Очистка данных модального окна
-    function clearModalData() {
-        $("#selectedProductId, #selectedProductName, #selectedProductImage, #selectedContainerId, #selectedPrice, #selectedVolume, #selectedStock").val("");
-        $("#containerSelectionStep").hide();
-        $("#addToOrderBtn").prop("disabled", true);
-        $("#productSearch").val("");
-    }
-    
-    // Закрытие модального окна
-    $("#productSelectionModal").on("hidden.bs.modal", function() {
-        clearModalData();
+
+        updateCartUI();
+        showToast("Товар додано до замовлення", "success");
+
+        // Сбрасываем выбор
+        card.find(".container-option").removeClass("selected");
+        card.find(".quantity-controls").hide();
+        card.find(".quantity-input").val(1);
     });
-    
-    // Валидация формы
-    $("#orderForm").on("submit", function(e) {
-        if ($(".order-item").length === 0) {
-            e.preventDefault();
-            alert("Додайте хоча б один товар до замовлення");
-            return false;
-        }
-        
-        <?php if (has_role(['admin', 'sales_manager'])): ?>
-        if ($("#customer_id").val() === "") {
-            e.preventDefault();
-            alert("Виберіть клієнта");
-            return false;
-        }
-        <?php endif; ?>
-        
-        if ($("#shipping_address").val().trim() === "") {
-            e.preventDefault();
-            alert("Введіть адресу доставки");
-            return false;
-        }
-        
-        return true;
+
+    // Управление корзиной
+    $(document).on("click", ".remove-item", function() {
+        const index = parseInt($(this).data("index"));
+        cartItems.splice(index, 1);
+        updateCartUI();
+        showToast("Товар видалено з замовлення", "success");
     });
-    
-    // Инициализация
-    updateOrderSummary();
+
+    $(document).on("click", ".cart-quantity-btn.increase", function() {
+        const index = parseInt($(this).data("index"));
+        const item = cartItems[index];
+        
+        if (item.quantity < item.stock) {
+            item.quantity++;
+            updateCartUI();
+        }
+    });
+
+    $(document).on("click", ".cart-quantity-btn.decrease", function() {
+        const index = parseInt($(this).data("index"));
+        const item = cartItems[index];
+        
+        if (item.quantity > 1) {
+            item.quantity--;
+            updateCartUI();
+        }
+    });
+
+    $(document).on("change", ".cart-quantity-input", function() {
+        const index = parseInt($(this).data("index"));
+        const newQuantity = parseInt($(this).val());
+        const item = cartItems[index];
+        
+        if (newQuantity >= 1 && newQuantity <= item.stock) {
+            item.quantity = newQuantity;
+            updateCartUI();
+        } else {
+            $(this).val(item.quantity);
+        }
+    });
+
+    function updateCartUI() {
+        const cartContainer = $("#cartItems");
+        
+        if (cartItems.length === 0) {
+            cartContainer.html(`
+                <div class="empty-cart">
+                    <div class="empty-cart-icon">🛒</div>
+                    <h5>Кошик порожній</h5>
+                    <p>Додайте товари зі списку вище</p>
+                </div>
+            `);
+        } else {
+            let html = "";
+            cartItems.forEach((item, index) => {
+                html += `
+                    <div class="cart-item">
+                        <div class="cart-item-header">
+                            <div class="cart-item-name">${item.name}</div>
+                            <button class="remove-item" data-index="${index}">×</button>
+                        </div>
+                        <div class="cart-item-details">
+                            ${item.volume} л • ${item.price.toFixed(2)} грн за шт • 
+                            ${(item.price / item.volume).toFixed(2)} грн/л
+                        </div>
+                        <div class="cart-quantity-controls">
+                            <div class="cart-quantity-section">
+                                <button class="cart-quantity-btn decrease" data-index="${index}">−</button>
+                                <input type="number" class="cart-quantity-input" value="${item.quantity}" 
+                                       min="1" max="${item.stock}" data-index="${index}">
+                                <button class="cart-quantity-btn increase" data-index="${index}">+</button>
+                            </div>
+                            <div class="item-total">${(item.price * item.quantity).toFixed(2)} грн</div>
+                        </div>
+                    </div>
+                `;
+            });
+            cartContainer.html(html);
+        }
+
+        updateOrderSummary();
+        updateUI();
+    }
+
+    function updateOrderSummary() {
+        const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        const totalVolume = cartItems.reduce((sum, item) => sum + (item.volume * item.quantity), 0);
+        const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const uniqueProducts = cartItems.length;
+
+        $("#orderSummary").html(`
+            <div class="summary-row">
+                <span>Унікальних товарів:</span>
+                <span>${uniqueProducts}</span>
+            </div>
+            <div class="summary-row">
+                <span>Загальна кількість:</span>
+                <span>${totalItems} шт</span>
+            </div>
+            <div class="summary-row">
+                <span>Загальний об'єм:</span>
+                <span>${totalVolume.toFixed(2)} л</span>
+            </div>
+            <div class="summary-row">
+                <span>Загальна сума:</span>
+                <span>${totalAmount.toFixed(2)} грн</span>
+            </div>
+        `);
+
+        // Обновляем скрытое поле для отправки
+        $("#cartData").val(JSON.stringify(cartItems));
+        $("#totalAmount").val(totalAmount.toFixed(2));
+    }
+
+    function updateUI() {
+        const hasItems = cartItems.length > 0;
+        $("#submitOrderBtn").prop("disabled", !hasItems);
+        
+        if (hasItems) {
+            $("#orderSummary").parent().show();
+        } else {
+            $("#orderSummary").parent().hide();
+        }
+    }
+
+    function submitOrder() {
+        if (cartItems.length === 0) {
+            showToast("Додайте товари до замовлення", "error");
+            return;
+        }
+
+        const formData = new FormData(document.getElementById("orderForm"));
+        
+        // Добавляем товары в форму
+        cartItems.forEach((item, index) => {
+            formData.append(`items[${index}][product_id]`, item.product_id);
+            formData.append(`items[${index}][container_id]`, item.container_id);
+            formData.append(`items[${index}][quantity]`, item.quantity);
+            formData.append(`items[${index}][price]`, item.price);
+            formData.append(`items[${index}][volume]`, item.volume);
+        });
+
+        const submitBtn = $("#submitOrderBtn");
+        const originalText = submitBtn.html();
+        submitBtn.html('<span class="spinner"></span> Обробка...').prop("disabled", true);
+
+        $.ajax({
+            url: "' . base_url('orders/store') . '",
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                showToast("Замовлення успішно створено!", "success");
+                setTimeout(() => {
+                    window.location.href = "' . base_url('orders') . '";
+                }, 1500);
+            },
+            error: function(xhr) {
+                let errorMessage = "Помилка при створенні замовлення";
+                
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    const errors = Object.values(xhr.responseJSON.errors);
+                    errorMessage = errors[0];
+                }
+                
+                showToast(errorMessage, "error");
+                submitBtn.html(originalText).prop("disabled", false);
+            }
+        });
+    }
+
+    function showToast(message, type) {
+        const toast = $(`
+            <div class="toast ${type}">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} me-2"></i>
+                ${message}
+            </div>
+        `);
+
+        $("body").append(toast);
+        
+        setTimeout(() => toast.addClass("show"), 100);
+        setTimeout(() => {
+            toast.removeClass("show");
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function showLoading() {
+        $("#productsGrid").html(`
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Завантаження...</span>
+                </div>
+                <div class="mt-2 text-muted">Завантаження товарів...</div>
+            </div>
+        `);
+    }
+
+    function hideLoading() {
+        // Загрузка скрыта через обновление контента
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 });
 </script>';
 ?>
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="<?= base_url() ?>">Головна</a></li>
-                <li class="breadcrumb-item"><a href="<?= base_url('orders') ?>">Замовлення</a></li>
-                <li class="breadcrumb-item active">Створення замовлення</li>
-            </ol>
-        </nav>
+<div class="order-container">
+    <!-- Заголовок страницы -->
+    <div class="page-header">
+        <h1><i class="fas fa-shopping-cart me-3"></i><?= $title ?></h1>
+        <p>Оберіть товари та оформіть замовлення у декілька кліків</p>
     </div>
-</div>
-
-<form id="orderForm" action="<?= base_url('orders/store') ?>" method="POST">
-    <?= csrf_field() ?>
-    <input type="hidden" name="total_amount" id="totalAmountInput" value="0">
 
     <div class="row">
-        <!-- Товары в заказе -->
-        <div class="col-md-8">
-            <div class="card order-form-card">
-                <div class="card-header bg-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-shopping-cart me-2"></i> Товари в замовленні
-                        </h5>
-                        <button type="button" id="addItemBtn" class="btn btn-light btn-sm">
-                            <i class="fas fa-plus me-1"></i> Додати товар
+        <!-- Каталог товаров -->
+        <div class="col-lg-8">
+            <div class="section-card">
+                <div class="section-header">
+                    <span><i class="fas fa-boxes me-2"></i>Каталог товарів</span>
+                    <span id="productCount">Завантаження...</span>
+                </div>
+                <div class="section-body">
+                    <!-- Поиск и фильтры -->
+                    <div class="search-section">
+                        <div class="search-input">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" id="searchInput" class="form-control" 
+                                   placeholder="Пошук товарів за назвою...">
+                        </div>
+                    </div>
+
+                    <div class="filters-section">
+                        <select id="categoryFilter" class="filter-select">
+                            <option value="">Всі категорії</option>
+                            <?php foreach ($categories ?? [] as $category): ?>
+                                <option value="<?= $category['id'] ?>"><?= $category['name'] ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" id="resetFilters" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Скинути фільтри
                         </button>
                     </div>
-                </div>
-                <div class="card-body">
-                    <div id="itemsContainer"></div>
-                    
-                    <div class="alert alert-info text-center" id="emptyMessage">
-                        <i class="fas fa-shopping-basket fa-2x mb-2 d-block"></i> 
-                        <h6>Кошик порожній</h6>
-                        <p class="mb-0">Натисніть "Додати товар", щоб почати формувати замовлення</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Сводка заказа -->
-            <div class="card order-form-card mt-3" id="orderSummaryCard" style="display: none;">
-                <div class="order-summary">
-                    <h5 class="mb-3"><i class="fas fa-calculator me-2"></i> Підсумок замовлення</h5>
-                    
-                    <div class="summary-row">
-                        <span>Кількість товарів:</span>
-                        <span><span id="totalQuantity">0</span> шт.</span>
-                    </div>
-                    
-                    <div class="summary-row">
-                        <span>Унікальних продуктів:</span>
-                        <span id="uniqueProducts">0</span>
-                    </div>
-                    
-                    <div class="summary-row">
-                        <span>Загальний об'єм:</span>
-                        <span id="totalVolume">0.00 л</span>
-                    </div>
-                    
-                    <div class="summary-row">
-                        <span>Загальна сума:</span>
-                        <span id="orderTotal">0.00 грн</span>
+
+                    <!-- Сетка товаров -->
+                    <div class="product-grid" id="productsGrid">
+                        <!-- Товары загружаются через AJAX -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Детали заказа -->
-        <div class="col-md-4">
-            <div class="card order-form-card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-shipping-fast me-2"></i> Деталі замовлення
-                    </h5>
+        <!-- Корзина и форма заказа -->
+        <div class="col-lg-4">
+            <div class="order-cart">
+                <!-- Корзина -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <span><i class="fas fa-shopping-basket me-2"></i>Ваше замовлення</span>
+                        <span id="cartCount">0 товарів</span>
+                    </div>
+                    <div class="section-body">
+                        <div id="cartItems">
+                            <div class="empty-cart">
+                                <div class="empty-cart-icon">🛒</div>
+                                <h5>Кошик порожній</h5>
+                                <p>Додайте товари зі списку вище</p>
+                            </div>
+                        </div>
+
+                        <!-- Сводка заказа -->
+                        <div class="order-summary" style="display: none;">
+                            <h5 class="mb-3"><i class="fas fa-calculator me-2"></i>Підсумок</h5>
+                            <div id="orderSummary"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
+
+                <!-- Форма заказа -->
+                <form id="orderForm" class="order-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" id="cartData" name="cart_data" value="">
+                    <input type="hidden" id="totalAmount" name="total_amount" value="0">
+
+                    <h5 class="mb-4"><i class="fas fa-user me-2"></i>Деталі замовлення</h5>
+
                     <?php if (has_role(['admin', 'sales_manager'])): ?>
-                        <div class="mb-3">
-                            <label for="customer_id" class="form-label">Клієнт <span class="text-danger">*</span></label>
-                            <select class="form-select" id="customer_id" name="customer_id" required>
+                        <div class="form-group">
+                            <label class="form-label">Клієнт <span class="text-danger">*</span></label>
+                            <select name="customer_id" class="form-control" required>
                                 <option value="">Виберіть клієнта</option>
                                 <?php foreach ($customers ?? [] as $customer): ?>
                                     <option value="<?= $customer['id'] ?>">
-                                        <?= $customer['first_name'] . ' ' . $customer['last_name'] ?> (<?= $customer['email'] ?>)
+                                        <?= $customer['first_name'] . ' ' . $customer['last_name'] ?> 
+                                        (<?= $customer['email'] ?>)
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                     <?php endif; ?>
 
-                    <div class="mb-3">
-                        <label for="shipping_address" class="form-label">Адреса доставки <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="shipping_address" 
-                                  name="shipping_address" 
-                                  rows="3" 
-                                  placeholder="Введіть повну адресу доставки" 
-                                  required></textarea>
+                    <div class="form-group">
+                        <label class="form-label">Адреса доставки <span class="text-danger">*</span></label>
+                        <textarea name="shipping_address" class="form-control" rows="3" 
+                                  placeholder="Введіть повну адресу доставки" required></textarea>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="payment_method" class="form-label">Спосіб оплати <span class="text-danger">*</span></label>
-                        <select class="form-select" id="payment_method" name="payment_method" required>
+                    <div class="form-group">
+                        <label class="form-label">Спосіб оплати <span class="text-danger">*</span></label>
+                        <select name="payment_method" class="form-control" required>
                             <option value="">Оберіть спосіб оплати</option>
                             <option value="cash_on_delivery">Оплата при отриманні</option>
                             <option value="bank_transfer">Банківський переказ</option>
@@ -725,93 +1236,16 @@ $(document).ready(function() {
                         </select>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Додаткові коментарі</label>
-                        <textarea class="form-control" id="notes" 
-                                  name="notes" 
-                                  rows="3" 
+                    <div class="form-group">
+                        <label class="form-label">Додаткові коментарі</label>
+                        <textarea name="notes" class="form-control" rows="3" 
                                   placeholder="Додаткова інформація або побажання"></textarea>
                     </div>
-                </div>
-                <div class="card-footer">
-                    <button type="submit" class="btn btn-success w-100" id="submitOrderBtn" disabled>
-                        <i class="fas fa-check me-2"></i> Оформити замовлення
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</form>
 
-<!-- Модальное окно выбора товара -->
-<div class="modal fade" id="productSelectionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Вибір товару</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Скрытые поля для выбранного товара -->
-                <input type="hidden" id="selectedProductId">
-                <input type="hidden" id="selectedProductName">
-                <input type="hidden" id="selectedProductImage">
-                <input type="hidden" id="selectedContainerId">
-                <input type="hidden" id="selectedPrice">
-                <input type="hidden" id="selectedVolume">
-                <input type="hidden" id="selectedStock">
-                
-                <div class="row">
-                    <!-- Список товаров -->
-                    <div class="col-md-6">
-                        <h6>Каталог товарів:</h6>
-                        
-                        <!-- Поиск -->
-                        <div class="mb-3">
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-search"></i>
-                                </span>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="productSearch" 
-                                       placeholder="Пошук товарів...">
-                            </div>
-                        </div>
-                        
-                        <!-- Список товаров -->
-                        <div class="product-search-card">
-                            <div id="productsList">
-                                <div class="text-center p-3">
-                                    <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Завантаження...</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Выбор объема тары -->
-                    <div class="col-md-6">
-                        <div id="containerSelectionStep" style="display: none;">
-                            <h6>Оберіть об'єм тари для: <span id="selectedProductTitle" class="text-primary"></span></h6>
-                            <div id="containersList"></div>
-                        </div>
-                        
-                        <div class="text-center text-muted" style="display: block;" id="selectProductPrompt">
-                            <i class="fas fa-hand-point-left fa-2x mb-3"></i>
-                            <p>Спочатку оберіть товар зі списку</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-1"></i> Скасувати
-                </button>
-                <button type="button" class="btn btn-primary" id="addToOrderBtn" disabled>
-                    <i class="fas fa-plus me-1"></i> Додати до замовлення
-                </button>
+                    <button type="submit" id="submitOrderBtn" class="submit-order-btn" disabled>
+                        <i class="fas fa-check me-2"></i>Оформити замовлення
+                    </button>
+                </form>
             </div>
         </div>
     </div>

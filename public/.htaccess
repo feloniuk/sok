@@ -1,6 +1,10 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
+    # Редирект для исправления двойных слешей (//auth/login -> /auth/login)
+    RewriteCond %{THE_REQUEST} \s/+(.*/)?//+(.*)\s [NC]
+    RewriteRule ^ /%1%2 [R=301,L]
+    
     # Если запрос идет к реальному файлу или каталогу, используем его напрямую
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d

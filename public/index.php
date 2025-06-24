@@ -204,6 +204,29 @@ $router->post('cart/remove', 'OrderController', 'cartAction');
 $router->post('cart/clear', 'OrderController', 'cartAction');
 $router->post('cart/get', 'OrderController', 'cartAction');
 
+// API маршруты для новой страницы создания заказов
+$router->get('api/products-with-containers', 'ApiController', 'productsWithContainers');
+$router->get('api/search-products', 'ApiController', 'searchProducts');
+$router->get('api/product-details', 'ApiController', 'getProductDetails');
+$router->get('api/popular-products', 'ApiController', 'getPopularProducts');
+$router->get('api/check-availability', 'ApiController', 'checkProductAvailability');
+$router->get('api/categories', 'ApiController', 'getCategories');
+$router->post('api/validate-cart', 'ApiController', 'validateCart');
+$router->get('api/promotions', 'ApiController', 'getPromotions');
+$router->get('api/dashboard-stats', 'ApiController', 'getDashboardStats');
+$router->post('api/check-cart-compatibility', 'ApiController', 'checkCartCompatibility');
+
+// Дополнительные маршруты для заказов
+$router->get('orders/product-with-containers', 'OrderController', 'getProductWithContainers');
+$router->get('orders/check-availability', 'OrderController', 'checkAvailability');
+$router->get('orders/recommended-products', 'OrderController', 'getRecommendedProducts');
+$router->post('orders/validate-cart', 'OrderController', 'validateCart');
+
+// Маршруты для работы с контейнерами (если нужно отдельное управление)
+$router->get('api/containers/by-product/{id}', 'ApiController', 'getContainersByProduct');
+$router->get('api/containers/{id}', 'ApiController', 'getContainerInfo');
+$router->post('api/containers/check-stock', 'ApiController', 'checkStock');
+
 // Обработка 404 ошибки
 $router->notFound(function() {
     header("HTTP/1.0 404 Not Found");

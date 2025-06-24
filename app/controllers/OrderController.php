@@ -401,25 +401,32 @@ public function cartAction() {
 public function store() {
     // Проверка авторизации
     if (!has_role(['admin', 'sales_manager', 'customer'])) {
-        $this->setFlash('error', 'У вас нет доступа к этой странице.');
-        $this->redirect('orders');
+        $this->json(['error' => 'У вас нет доступа к этой странице.'], 403);
         return;
     }
     
     // Проверка метода запроса
     if (!$this->isPost()) {
-        $this->redirect('orders/create');
+        $this->json(['error' => 'Неправильный метод запроса'], 405);
         return;
     }
     
     // Проверка CSRF-токена
-    $this->validateCsrfToken();
+    try {
+        $this->validateCsrfToken();
+    } catch (Exception $e) {
+        $this->json(['error' => 'CSRF token validation failed'], 403);
+        return;
+    }
     
     // Получение данных из формы
     $customerId = has_role('customer') ? get_current_user_id() : $this->input('customer_id');
     $shippingAddress = $this->input('shipping_address');
     $paymentMethod = $this->input('payment_method');
     $notes = $this->input('notes');
+    
+    // Получение товаров из корзины
+    $cartItemsJson = $this->input('cart_items', []);
     
     // Валидация данных
     $errors = [];
@@ -436,114 +443,146 @@ public function store() {
         $errors['payment_method'] = 'Виберіть спосіб оплати';
     }
     
-    // Получение товаров из корзины
-    $cartItems = cart()->getItems();
-    
-    if (empty($cartItems)) {
+    if (empty($cartItemsJson)) {
         $errors['products'] = 'Додайте хоча б один товар до замовлення';
     }
     
-    // Если есть ошибки, возвращаемся к форме
+    // Если есть ошибки, возвращаем их
     if (!empty($errors)) {
-        set_form_errors($errors);
-        $this->redirect('orders/create');
+        $this->json(['errors' => $errors], 400);
         return;
     }
     
-    // Подготовка товаров для заказа
+    // Парсинг товаров из корзины
     $orderItems = [];
     $totalAmount = 0;
     $productContainerModel = new ProductContainer();
     
-    foreach ($cartItems as $item) {
+    foreach ($cartItemsJson as $itemJson) {
+        $item = json_decode($itemJson, true);
+        
+        if (!$item || !isset($item['product_id'])) {
+            continue;
+        }
+        
+        $productId = $item['product_id'];
+        $containerId = $item['container_id'] ?? null;
+        $quantity = intval($item['quantity'] ?? 1);
+        $price = floatval($item['price'] ?? 0);
+        $volume = floatval($item['volume'] ?? 1);
+        
+        // Валидация товара
+        $product = $this->productModel->getById($productId);
+        if (!$product || !$product['is_active']) {
+            $errors['product_' . $productId] = 'Товар недоступний або неактивний';
+            continue;
+        }
+        
         // Если используется контейнер
-        if (!empty($item['container_id'])) {
-            $container = $productContainerModel->getById($item['container_id']);
+        if ($containerId && $containerId !== 'default') {
+            $container = $productContainerModel->getById($containerId);
             
-            if (!$container) {
-                $errors['container_' . $item['container_id']] = 'Контейнер не знайдено';
+            if (!$container || !$container['is_active'] || $container['product_id'] != $productId) {
+                $errors['container_' . $containerId] = 'Обраний об\'єм недоступний';
                 continue;
             }
             
-            // Проверка количества в контейнере
-            if ($item['quantity'] > $container['stock_quantity']) {
-                $errors['quantity_' . $item['id']] = 'Недостатньо товару на складі. В наявності: ' . $container['stock_quantity'];
+            if ($container['stock_quantity'] < $quantity) {
+                $errors['quantity_' . $productId] = 'Недостатньо товару на складі. Доступно: ' . $container['stock_quantity'];
+                continue;
+            }
+            
+            // Проверяем соответствие цены и объема
+            if (abs($container['price'] - $price) > 0.01 || abs($container['volume'] - $volume) > 0.01) {
+                $errors['price_' . $productId] = 'Невідповідність ціни або об\'єму';
                 continue;
             }
             
             $orderItems[] = [
-                'product_id' => $item['id'],
-                'container_id' => $item['container_id'],
-                'quantity' => $item['quantity'],
+                'product_id' => $productId,
+                'container_id' => $containerId,
+                'quantity' => $quantity,
                 'price' => $container['price'],
                 'volume' => $container['volume'],
                 'warehouse_id' => 1
             ];
             
-            $totalAmount += $container['price'] * $item['quantity'];
+            $totalAmount += $container['price'] * $quantity;
             
         } else {
             // Базовый режим без контейнеров
-            $product = $this->productModel->getById($item['id']);
-            
-            if (!$product) {
-                $errors['product_' . $item['id']] = 'Продукт не знайдено';
+            if ($product['stock_quantity'] < $quantity) {
+                $errors['quantity_' . $productId] = 'Недостатньо товару на складі. Доступно: ' . $product['stock_quantity'];
                 continue;
             }
             
-            if ($item['quantity'] > $product['stock_quantity']) {
-                $errors['quantity_' . $item['id']] = 'Недостатньо товару на складі. В наявності: ' . $product['stock_quantity'];
+            // Проверяем соответствие цены
+            if (abs($product['price'] - $price) > 0.01) {
+                $errors['price_' . $productId] = 'Невідповідність ціни';
                 continue;
             }
             
             $orderItems[] = [
-                'product_id' => $item['id'],
+                'product_id' => $productId,
                 'container_id' => null,
-                'quantity' => $item['quantity'],
+                'quantity' => $quantity,
                 'price' => $product['price'],
                 'volume' => 1,
                 'warehouse_id' => 1
             ];
             
-            $totalAmount += $product['price'] * $item['quantity'];
+            $totalAmount += $product['price'] * $quantity;
         }
     }
     
     // Если есть ошибки после проверки товаров
     if (!empty($errors)) {
-        set_form_errors($errors);
-        $this->redirect('orders/create');
+        $this->json(['errors' => $errors], 400);
         return;
     }
     
-    // Создание заказа
-    $orderData = [
-        'customer_id' => $customerId,
-        'status' => 'pending',
-        'total_amount' => $totalAmount,
-        'payment_method' => $paymentMethod,
-        'shipping_address' => $shippingAddress,
-        'notes' => $notes
-    ];
+    if (empty($orderItems)) {
+        $this->json(['errors' => ['products' => 'Не вдалося обробити товари з кошика']], 400);
+        return;
+    }
     
-    $orderId = $this->orderModel->createWithItems($orderData, $orderItems);
-    
-    if ($orderId) {
-        // Обновляем остатки в контейнерах
-        foreach ($orderItems as $item) {
-            if (!empty($item['container_id'])) {
-                $productContainerModel->updateStock($item['container_id'], $item['quantity'], 'subtract');
+    try {
+        // Создание заказа
+        $orderData = [
+            'customer_id' => $customerId,
+            'status' => 'pending',
+            'total_amount' => $totalAmount,
+            'payment_method' => $paymentMethod,
+            'shipping_address' => $shippingAddress,
+            'notes' => $notes
+        ];
+        
+        $orderId = $this->orderModel->createWithItems($orderData, $orderItems);
+        
+        if ($orderId) {
+            // Обновляем остатки в контейнерах
+            foreach ($orderItems as $item) {
+                if (!empty($item['container_id'])) {
+                    $productContainerModel->updateStock($item['container_id'], $item['quantity'], 'subtract');
+                }
             }
+            
+            $this->json([
+                'success' => true,
+                'message' => 'Замовлення успішно створено',
+                'order_id' => $orderId
+            ]);
+        } else {
+            $this->json(['error' => 'Помилка при створенні замовлення'], 500);
         }
         
-        // Очищаем корзину
-        cart()->clear();
+    } catch (Exception $e) {
+        if (DEBUG_MODE) {
+            error_log("Error in OrderController::store: " . $e->getMessage());
+            error_log($e->getTraceAsString());
+        }
         
-        $this->setFlash('success', 'Замовлення успішно створено.');
-        $this->redirect('orders/view/' . $orderId);
-    } else {
-        $this->setFlash('error', 'Помилка при створенні замовлення.');
-        $this->redirect('orders/create');
+        $this->json(['error' => 'Помилка при створенні замовлення: ' . $e->getMessage()], 500);
     }
 }
 
@@ -1055,5 +1094,214 @@ public function storeWithContainers() {
         $this->setFlash('error', 'Помилка при створенні замовлення.');
         $this->redirect('orders/create');
     }
+}
+
+
+public function getProductWithContainers() {
+    $productId = $this->input('product_id');
+    
+    if (!$productId) {
+        $this->json(['error' => 'Не вказано ID продукту'], 400);
+        return;
+    }
+    
+    // Получение информации о продукте
+    $product = $this->productModel->getWithCategory($productId);
+    
+    if (!$product || !$product['is_active']) {
+        $this->json(['error' => 'Товар не знайдено або неактивний'], 404);
+        return;
+    }
+    
+    // Получение контейнеров для продукта
+    $productContainerModel = new ProductContainer();
+    $containers = $productContainerModel->getByProductId($productId);
+    
+    // Если контейнеров нет, создаем базовый
+    if (empty($containers)) {
+        $containers = [[
+            'id' => 'default',
+            'product_id' => $productId,
+            'volume' => 1,
+            'price' => $product['price'],
+            'stock_quantity' => $product['stock_quantity'],
+            'is_active' => $product['is_active']
+        ]];
+    }
+    
+    $response = [
+        'product' => $product,
+        'containers' => $containers
+    ];
+    
+    $this->json($response);
+}
+
+/**
+ * Проверка доступности товара/контейнера (AJAX)
+ */
+public function checkAvailability() {
+    $productId = $this->input('product_id');
+    $containerId = $this->input('container_id');
+    $quantity = intval($this->input('quantity', 1));
+    
+    if (!$productId) {
+        $this->json(['error' => 'Не вказано ID продукту'], 400);
+        return;
+    }
+    
+    $product = $this->productModel->getById($productId);
+    if (!$product || !$product['is_active']) {
+        $this->json(['available' => false, 'reason' => 'Товар недоступний'], 200);
+        return;
+    }
+    
+    if ($containerId && $containerId !== 'default') {
+        // Проверка контейнера
+        $productContainerModel = new ProductContainer();
+        $container = $productContainerModel->getById($containerId);
+        
+        if (!$container || !$container['is_active'] || $container['product_id'] != $productId) {
+            $this->json(['available' => false, 'reason' => 'Контейнер недоступний'], 200);
+            return;
+        }
+        
+        if ($container['stock_quantity'] < $quantity) {
+            $this->json([
+                'available' => false, 
+                'reason' => 'Недостатньо на складі',
+                'available_quantity' => $container['stock_quantity']
+            ], 200);
+            return;
+        }
+        
+        $this->json([
+            'available' => true,
+            'stock_quantity' => $container['stock_quantity'],
+            'price' => $container['price'],
+            'volume' => $container['volume']
+        ]);
+        
+    } else {
+        // Проверка базового продукта
+        if ($product['stock_quantity'] < $quantity) {
+            $this->json([
+                'available' => false, 
+                'reason' => 'Недостатньо на складі',
+                'available_quantity' => $product['stock_quantity']
+            ], 200);
+            return;
+        }
+        
+        $this->json([
+            'available' => true,
+            'stock_quantity' => $product['stock_quantity'],
+            'price' => $product['price'],
+            'volume' => 1
+        ]);
+    }
+}
+
+/**
+ * Получение рекомендованных товаров для страницы создания заказа
+ */
+public function getRecommendedProducts() {
+    $limit = intval($this->input('limit', 6));
+    $categoryId = $this->input('category_id');
+    
+    $filters = ['is_featured' => 1, 'is_active' => 1];
+    if ($categoryId) {
+        $filters['category_id'] = $categoryId;
+    }
+    
+    $products = $this->productModel->getFiltered(1, $limit, $filters)['items'];
+    
+    // Для каждого продукта получаем минимальную цену
+    $productContainerModel = new ProductContainer();
+    
+    foreach ($products as &$product) {
+        $containers = $productContainerModel->getByProductId($product['id']);
+        if (!empty($containers)) {
+            $activePrices = array_column(
+                array_filter($containers, function($c) { 
+                    return $c['is_active'] && $c['stock_quantity'] > 0; 
+                }), 
+                'price'
+            );
+            $product['min_price'] = !empty($activePrices) ? min($activePrices) : $product['price'];
+        } else {
+            $product['min_price'] = $product['price'];
+        }
+    }
+    
+    $this->json(['products' => $products]);
+}
+
+/**
+ * Валидация данных корзины (AJAX)
+ */
+public function validateCart() {
+    $cartItemsJson = $this->input('cart_items', []);
+    
+    if (empty($cartItemsJson)) {
+        $this->json(['valid' => false, 'errors' => ['Кошик порожній']], 200);
+        return;
+    }
+    
+    $errors = [];
+    $totalAmount = 0;
+    $productContainerModel = new ProductContainer();
+    
+    foreach ($cartItemsJson as $itemJson) {
+        $item = json_decode($itemJson, true);
+        
+        if (!$item || !isset($item['product_id'])) {
+            $errors[] = 'Некоректні дані товару';
+            continue;
+        }
+        
+        $productId = $item['product_id'];
+        $containerId = $item['container_id'] ?? null;
+        $quantity = intval($item['quantity'] ?? 1);
+        
+        // Проверка продукта
+        $product = $this->productModel->getById($productId);
+        if (!$product || !$product['is_active']) {
+            $errors[] = "Товар '{$product['name']}' недоступний";
+            continue;
+        }
+        
+        // Проверка контейнера
+        if ($containerId && $containerId !== 'default') {
+            $container = $productContainerModel->getById($containerId);
+            
+            if (!$container || !$container['is_active']) {
+                $errors[] = "Об'єм для товару '{$product['name']}' недоступний";
+                continue;
+            }
+            
+            if ($container['stock_quantity'] < $quantity) {
+                $errors[] = "Недостатньо '{$product['name']}' на складі (доступно: {$container['stock_quantity']})";
+                continue;
+            }
+            
+            $totalAmount += $container['price'] * $quantity;
+            
+        } else {
+            if ($product['stock_quantity'] < $quantity) {
+                $errors[] = "Недостатньо '{$product['name']}' на складі (доступно: {$product['stock_quantity']})";
+                continue;
+            }
+            
+            $totalAmount += $product['price'] * $quantity;
+        }
+    }
+    
+    $this->json([
+        'valid' => empty($errors),
+        'errors' => $errors,
+        'total_amount' => $totalAmount,
+        'items_count' => count($cartItemsJson)
+    ]);
 }
 }
